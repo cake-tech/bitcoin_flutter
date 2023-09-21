@@ -1,5 +1,7 @@
 import 'dart:typed_data';
-import 'models/networks.dart';
+import 'package:bip32/bip32.dart';
+import 'package:bip32/src/utils/ecurve.dart' as ecc;
+import 'models/networks.dart' as network_model;
 import 'package:bs58check/bs58check.dart' as bs58check;
 import 'package:bech32/bech32.dart';
 import 'payments/index.dart' show PaymentData;
@@ -8,7 +10,7 @@ import 'payments/p2wpkh.dart';
 import 'package:dart_bech32/dart_bech32.dart';
 
 class Address {
-  static bool validateAddress(String address, [NetworkType? nw]) {
+  static bool validateAddress(String address, [network_model.NetworkType? nw]) {
     try {
       addressToOutputScript(address, nw);
       return true;
@@ -17,8 +19,8 @@ class Address {
     }
   }
 
-  static Uint8List addressToOutputScript(String address, [NetworkType? nw]) {
-    NetworkType network = nw ?? bitcoin;
+  static Uint8List addressToOutputScript(String address, [network_model.NetworkType? nw]) {
+    network_model.NetworkType network = nw ?? network_model.bitcoin;
     var decodeBase58;
     var decodeBech32;
     try {
@@ -44,7 +46,16 @@ class Address {
     throw new ArgumentError(address + ' has no matching Script');
   }
 
-  static String encodeSilentPaymentAddress(Uint8List scanKey, List<int> spendKey,
+  static Map<String, BIP32> deriveSilentPaymentsKeyPair(BIP32 root) {
+    if (root.depth != 0 || root.parentFingerprint != 0) throw new ArgumentError('Bad master key!');
+
+    return {
+      'scanKey': root.derivePath("m/352'/0'/0'/1'/0'"),
+      'spendKey': root.derivePath("m/352'/0'/0'/0'/0'"),
+    };
+  }
+
+  static String encodeSilentPaymentAddress(Uint8List scanKey, Uint8List spendKey,
       {String hrp = 'tsp', int version = 0}) {
     Uint8List data = bech32m.toWords(Uint8List.fromList([...scanKey, ...spendKey]));
     Uint8List versionData = Uint8List.fromList([version, ...data]);

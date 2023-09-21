@@ -1,7 +1,9 @@
+import 'package:bip32/bip32.dart';
 import 'package:test/test.dart';
 import '../lib/src/address.dart' show Address;
 import '../lib/src/models/networks.dart' as NETWORKS;
 import '../lib/src/utils/util.dart';
+import 'package:bip39/bip39.dart' as bip39;
 
 main() {
   group('Address', () {
@@ -19,6 +21,26 @@ main() {
         test('can decode scan and spend key from silent payment address', () {
           expect(Address.decodeSilentPaymentAddress(silentAddress, hrp: 'sprt'),
               {'scanKey': scanKey.fromHex, 'spendKey': spendKey.fromHex});
+        });
+
+        test('can derive scan and spend key from master key', () {
+          const mnemonic =
+              'praise you muffin lion enable neck grocery crumble super myself license ghost';
+          final seed = bip39.mnemonicToSeed(mnemonic);
+          final root = BIP32.fromSeed(seed);
+          final derived = Address.deriveSilentPaymentsKeyPair(root);
+          final scanKey = derived['scanKey'];
+          final spendKey = derived['spendKey'];
+
+          expect(scanKey?.toBase58(), root.derivePath("m/352'/0'/0'/1'/0'").toBase58());
+          expect(spendKey?.toBase58(), root.derivePath("m/352'/0'/0'/0'/0'").toBase58());
+        });
+
+        test('should fail to derive scan and spend key if master key is not provided', () {
+          final master =
+              BIP32.fromSeed(bip39.mnemonicToSeed(bip39.generateMnemonic())).derivePath("m/0'/0'");
+
+          expect(() => Address.deriveSilentPaymentsKeyPair(master), throwsA(isA<ArgumentError>()));
         });
       });
       test('base58 addresses and valid network', () {
