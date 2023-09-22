@@ -18,6 +18,11 @@ dependencies:
       url: https://github.com/cake-tech/bech32.git
       ref: cake-0.2.2
   dart_bech32: ^2.0.0
+  coinlib:
+    git:
+      url: https://github.com/saltrafael/coinlib.git
+      ref: silent-payments
+      path: ./coinlib
 
 dev_dependencies:
   test: ^1.21.1
