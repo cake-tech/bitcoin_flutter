@@ -23,7 +23,7 @@ main() async {
               SilentPaymentReceiver(
                 scanPubkey: ECPublicKey(scanKey.fromHex),
                 spendPubkey: ECPublicKey(spendKey.fromHex),
-                isTestnet: false,
+                hrp: 'sprt',
                 version: 0,
               ).toString(),
               silentAddress);
@@ -34,7 +34,7 @@ main() async {
               SilentPaymentReceiver(
                 scanPubkey: ECPublicKey(scanKey.fromHex),
                 spendPubkey: ECPublicKey(spendKey.fromHex),
-                isTestnet: false,
+                hrp: 'sprt',
                 version: 0,
               ).toString());
         });
