@@ -1,11 +1,15 @@
 import 'package:bip32/bip32.dart';
+import 'package:bitcoin_flutter/src/templates/silentpaymentaddress.dart';
+import 'package:coinlib/coinlib.dart' show loadCoinlib, ECPublicKey;
 import 'package:test/test.dart';
 import '../lib/src/address.dart' show Address;
 import '../lib/src/models/networks.dart' as NETWORKS;
 import '../lib/src/utils/util.dart';
 import 'package:bip39/bip39.dart' as bip39;
 
-main() {
+main() async {
+  await loadCoinlib();
+
   group('Address', () {
     group('validateAddress', () {
       group('Silent Payments', () {
@@ -15,32 +19,39 @@ main() {
             'sprt1qqd4pqddpjtu0tlfh24t0xm4y40pcwdsaxtrsnqc7ccj2tdeapdae6q5w4uvakewwe6g9eu4na2upz9yddl58gzy6ff5wtk9s5xsfqnmt6q30zssg';
 
         test('can encode scan and spend key to silent payment address', () {
-          expect(Address.encodeSilentPaymentAddress(scanKey.fromHex, spendKey.fromHex, hrp: 'sprt'),
+          expect(
+              SilentPaymentReceiver(
+                scanPubkey: ECPublicKey(scanKey.fromHex),
+                spendPubkey: ECPublicKey(spendKey.fromHex),
+                isTestnet: false,
+                version: 0,
+              ).toString(),
               silentAddress);
         });
         test('can decode scan and spend key from silent payment address', () {
-          expect(Address.decodeSilentPaymentAddress(silentAddress, hrp: 'sprt'),
-              {'scanKey': scanKey.fromHex, 'spendKey': spendKey.fromHex});
+          expect(
+              SilentPaymentReceiver.fromString(silentAddress).toString(),
+              SilentPaymentReceiver(
+                scanPubkey: ECPublicKey(scanKey.fromHex),
+                spendPubkey: ECPublicKey(spendKey.fromHex),
+                isTestnet: false,
+                version: 0,
+              ).toString());
         });
 
         test('can derive scan and spend key from master key', () {
           const mnemonic =
               'praise you muffin lion enable neck grocery crumble super myself license ghost';
+          final address = SilentPaymentAddress.fromMnemonic(mnemonic);
+
           final seed = bip39.mnemonicToSeed(mnemonic);
           final root = BIP32.fromSeed(seed);
-          final derived = Address.deriveSilentPaymentsKeyPair(root);
-          final scanKey = derived['scanKey'];
-          final spendKey = derived['spendKey'];
 
-          expect(scanKey?.toBase58(), root.derivePath("m/352'/0'/0'/1'/0'").toBase58());
-          expect(spendKey?.toBase58(), root.derivePath("m/352'/0'/0'/0'/0'").toBase58());
-        });
+          expect(address.scanPrivkey.data, root.derivePath("m/352'/0'/0'/1'/0'").privateKey!);
+          expect(address.scanPubkey.data, root.derivePath("m/352'/0'/0'/1'/0'").publicKey);
 
-        test('should fail to derive scan and spend key if master key is not provided', () {
-          final master =
-              BIP32.fromSeed(bip39.mnemonicToSeed(bip39.generateMnemonic())).derivePath("m/0'/0'");
-
-          expect(() => Address.deriveSilentPaymentsKeyPair(master), throwsA(isA<ArgumentError>()));
+          expect(address.spendPrivkey.data, root.derivePath("m/352'/0'/0'/0'/0'").privateKey!);
+          expect(address.spendPubkey.data, root.derivePath("m/352'/0'/0'/0'/0'").publicKey);
         });
       });
       test('base58 addresses and valid network', () {
