@@ -23,6 +23,11 @@ dependencies:
       url: https://github.com/saltrafael/coinlib.git
       ref: silent-payments
       path: ./coinlib
+  bitcoin_base:
+    git:
+      url: https://github.com/saltrafael/bitcoin_base.git
+      ref: main
+  elliptic: ^0.3.10
 
 dev_dependencies:
   test: ^1.21.1

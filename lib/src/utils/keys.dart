@@ -1,16 +1,21 @@
+import 'dart:typed_data';
+
 import 'package:coinlib/coinlib.dart';
+import 'package:bitcoin_base/bitcoin_base.dart' as bitcoin_base;
 
-typedef PrivateKeyInfo = (ECPrivateKey, bool);
+class PrivateKeyInfo {
+  final ECPrivateKey key;
+  final bool isTaproot;
 
-List<PrivateKeyInfo> decodePrivateKeys(List<(String, bool)> inputPrivKeys) {
-  return inputPrivKeys.map((input) => (ECPrivateKey.fromHex(input.$1), input.$2)).toList();
+  PrivateKeyInfo(this.key, this.isTaproot);
 }
 
 ECPrivateKey getSumInputPrivKeys(List<PrivateKeyInfo> senderSecretKeys) {
   List<ECPrivateKey> negatedKeys = [];
 
   for (final info in senderSecretKeys) {
-    final (key, isTaproot) = info;
+    final key = info.key;
+    final isTaproot = info.isTaproot;
 
     if (isTaproot && key.compressed && key.data[0] == 0x03) {
       negatedKeys.add(key.negate()!);
@@ -28,4 +33,12 @@ ECPrivateKey getSumInputPrivKeys(List<PrivateKeyInfo> senderSecretKeys) {
   );
 
   return result;
+}
+
+bitcoin_base.P2trAddress getTaproot(String address) {
+  return bitcoin_base.P2trAddress(program: address);
+}
+
+List<dynamic> getScript(String raw) {
+  return bitcoin_base.Script.fromRaw(hexData: raw, hasSegwit: true).script;
 }

@@ -1,10 +1,11 @@
 import 'package:bip32/bip32.dart';
 import 'package:bitcoin_flutter/src/templates/silentpaymentaddress.dart';
+import 'package:bitcoin_flutter/src/utils/constants/derivation_paths.dart';
 import 'package:coinlib/coinlib.dart' show loadCoinlib, ECPublicKey;
 import 'package:test/test.dart';
 import '../lib/src/address.dart' show Address;
 import '../lib/src/models/networks.dart' as NETWORKS;
-import '../lib/src/utils/util.dart';
+import '../lib/src/utils/string.dart';
 import 'package:bip39/bip39.dart' as bip39;
 
 main() async {
@@ -12,7 +13,7 @@ main() async {
 
   group('Address', () {
     group('validateAddress', () {
-      group('Silent Payments', () {
+      group('silent payment addresses', () {
         final scanKey = '036a1035a192f8f5fd375556f36ea4abc387361d32c709831ec624a5b73d0b7b9d';
         final spendKey = '028eaf19db65cece905cf2b3eab811148d6fe874089a4a68e5d8b0a1a0904f6bd0';
         final silentAddress =
@@ -39,19 +40,50 @@ main() async {
               ).toString());
         });
 
-        test('can derive scan and spend key from master key', () {
+        test('can derive scan and spend key from master key', () async {
           const mnemonic =
               'praise you muffin lion enable neck grocery crumble super myself license ghost';
-          final address = SilentPaymentAddress.fromMnemonic(mnemonic);
+          final address = await SilentPaymentAddress.fromMnemonic(mnemonic);
 
           final seed = bip39.mnemonicToSeed(mnemonic);
           final root = BIP32.fromSeed(seed);
 
-          expect(address.scanPrivkey.data, root.derivePath("m/352'/0'/0'/1'/0'").privateKey!);
-          expect(address.scanPubkey.data, root.derivePath("m/352'/0'/0'/1'/0'").publicKey);
+          expect(address.scanPrivkey.data, root.derivePath(SCAN_PATH).privateKey!);
+          expect(address.scanPubkey.data, root.derivePath(SCAN_PATH).publicKey);
 
-          expect(address.spendPrivkey.data, root.derivePath("m/352'/0'/0'/0'/0'").privateKey!);
-          expect(address.spendPubkey.data, root.derivePath("m/352'/0'/0'/0'/0'").publicKey);
+          expect(address.spendPrivkey.data, root.derivePath(SPEND_PATH).privateKey!);
+          expect(address.spendPubkey.data, root.derivePath(SPEND_PATH).publicKey);
+        });
+
+        test('can create a labeled silent payment address', () {
+          final given = [
+            (
+              '0220bcfac5b99e04ad1a06ddfb016ee13582609d60b6291e98d01a9bc9a16c96d4',
+              '025cc9856d6f8375350e123978daac200c260cb5b5ae83106cab90484dcd8fcf36',
+              '0000000000000000000000000000000000000000000000000000000000000001',
+              'sp1qqgste7k9hx0qftg6qmwlkqtwuy6cycyavzmzj85c6qdfhjdpdjtdgqah4hxfsjdwyaeel4g8x2npkj7qlvf2692l5760z5ut0ggnlrhdzsy3cvsj',
+            ),
+            (
+              '0220bcfac5b99e04ad1a06ddfb016ee13582609d60b6291e98d01a9bc9a16c96d4',
+              '025cc9856d6f8375350e123978daac200c260cb5b5ae83106cab90484dcd8fcf36',
+              '0000000000000000000000000000000000000000000000000000000000000539',
+              'sp1qqgste7k9hx0qftg6qmwlkqtwuy6cycyavzmzj85c6qdfhjdpdjtdgq562yg7htxyg8eq60rl37uul37jy62apnf5ru62uef0eajpdfrnp5cmqndj',
+            ),
+            (
+              '03b4cc0b090b6f49a684558852db60ee5eb1c5f74352839c3d18a8fc04ef7354e0',
+              '03bc95144daf15336db3456825c70ced0a4462f89aca42c4921ee7ccb2b3a44796',
+              '91cb04398a508c9d995ff4a18e5eae24d5e9488309f189120a3fdbb977978c46',
+              'sp1qqw6vczcfpdh5nf5y2ky99kmqae0tr30hgdfg88parz50cp80wd2wqqll5497pp2gcr4cmq0v5nv07x8u5jswmf8ap2q0kxmx8628mkqanyu63ck8',
+            ),
+          ];
+
+          given.forEach((data) {
+            final (scanKey, spendKey, label, address) = data;
+            final result = SilentPaymentReceiver.createLabeledSilentPaymentAddress(
+                ECPublicKey(scanKey.fromHex), ECPublicKey(spendKey.fromHex), label.fromHex);
+
+            expect(result.toString(), address);
+          });
         });
       });
       test('base58 addresses and valid network', () {

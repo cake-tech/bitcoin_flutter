@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:hex/hex.dart';
 
 extension Uint8ListExt on Uint8List {
   int compare(Uint8List list2) {
@@ -23,6 +24,10 @@ extension Uint8ListExt on Uint8List {
 
   Uint8List concat(List<Uint8List> concatLists) {
     return concatenateUint8Lists([this, ...concatLists]);
+  }
+
+  String get hex {
+    return HEX.encode(this);
   }
 }
 
