@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 import 'package:bitcoin_flutter/src/payments/silentpayments.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
-import 'package:coinlib/coinlib.dart';
-import 'package:elliptic/elliptic.dart' as elliptic;
+import 'package:elliptic/elliptic.dart';
+import 'package:crypto/crypto.dart';
 import '../utils/uint8list.dart';
 
 Uint8List? handleLabels(
@@ -11,27 +11,28 @@ Uint8List? handleLabels(
   Uint8List tweak,
   Map<String, String> labels,
 ) {
-  final secp256k1 = elliptic.getSecp256k1();
+  final curve = getSecp256k1();
 
-  final negatedPublicKey = ECPublicKey(tweakedPublicKey).negate(compress: true)!;
-  final newNegatedPubKey = elliptic.PublicKey.fromHex(secp256k1, negatedPublicKey.data.hex);
-  final newOutput = elliptic.PublicKey.fromHex(secp256k1, output.hex);
+  final negatedPublicKey = PublicKey.fromHex(curve, tweakedPublicKey.hex).negate();
+  final newNegatedPubKey = PublicKey.fromHex(curve, negatedPublicKey.toCompressedHex());
+  final newOutput = PublicKey.fromHex(curve, output.hex);
 
-  final mG = elliptic.PublicKey.fromPoint(
-      secp256k1, elliptic.getSecp256k1().add(newOutput, newNegatedPubKey));
+  final mG = PublicKey.fromPoint(curve, curve.add(newOutput, newNegatedPubKey));
 
   var labelHex = labels[mG.toCompressedHex()];
 
   if (labelHex == null) {
     final negatedOutput =
-        elliptic.PublicKey.fromHex(secp256k1, ECPublicKey(output).negate(compress: true)!.data.hex);
-    final new_mG = elliptic.PublicKey.fromPoint(
-        secp256k1, elliptic.getSecp256k1().add(negatedOutput, newNegatedPubKey));
+        PublicKey.fromHex(curve, PublicKey.fromHex(curve, output.hex).negate().toCompressedHex());
+    final new_mG = PublicKey.fromPoint(curve, curve.add(negatedOutput, newNegatedPubKey));
     labelHex = labels[new_mG.toCompressedHex()];
   }
 
   if (labelHex != null) {
-    return ECPrivateKey(tweak).tweak(labelHex.fromHex)!.data;
+    return PrivateKey.fromHex(curve, tweak.hex)
+        .tweakAdd(labelHex.fromHex.bigint)!
+        .toCompressedHex()
+        .fromHex;
   }
 
   return null;
@@ -40,7 +41,9 @@ Uint8List? handleLabels(
 int processTweak(Uint8List spendPublicKey, Uint8List tweak, List<Uint8List> outputPubKeys,
     Map<String, Uint8List> matches,
     {Map<String, String>? labels}) {
-  final tweakedPublicKey = ECPublicKey(spendPublicKey).tweak(tweak)!.data;
+  final curve = getSecp256k1();
+  final tweakedPublicKey =
+      PublicKey.fromHex(curve, spendPublicKey.hex).tweakAdd(tweak.bigint).toCompressedHex().fromHex;
 
   for (var i = 0; i < outputPubKeys.length; i++) {
     final output = outputPubKeys[i];
@@ -68,8 +71,14 @@ int processTweak(Uint8List spendPublicKey, Uint8List tweak, List<Uint8List> outp
 Map<String, Uint8List> scanOutputs(Uint8List scanPrivateKey, Uint8List spendPublicKey,
     Uint8List sumOfInputPublicKeys, Uint8List outpointHash, List<Uint8List> outputPubKeys,
     {Map<String, String>? labels}) {
-  final ecdhSecret = ECPublicKey(sumOfInputPublicKeys)
-      .mul(ECPrivateKey(scanPrivateKey).mul(outpointHash)!.data, compress: true);
+  final curve = getSecp256k1();
+  final ecdhSecret = PublicKey.fromHex(curve, sumOfInputPublicKeys.hex).tweakMul(
+    PrivateKey.fromHex(curve, scanPrivateKey.hex)
+        .tweakMul(outpointHash.bigint)!
+        .toCompressedHex()
+        .fromHex
+        .bigint,
+  );
 
   // output-to-tweak data map
   final matches = <String, Uint8List>{};
@@ -77,8 +86,11 @@ Map<String, Uint8List> scanOutputs(Uint8List scanPrivateKey, Uint8List spendPubl
   var n = 0;
   var counterIncrement = 0;
   do {
-    final tweak = sha256Hash(ecdhSecret!.data.concat([serialiseUint32(n)]));
-    counterIncrement = processTweak(spendPublicKey, tweak, outputPubKeys, matches, labels: labels);
+    final tweak = sha256
+        .convert(ecdhSecret!.toCompressedHex().fromHex.concat([serialiseUint32(n)]))
+        .toString();
+    counterIncrement =
+        processTweak(spendPublicKey, tweak.fromHex, outputPubKeys, matches, labels: labels);
     n += counterIncrement;
   } while (counterIncrement > 0 && outputPubKeys.isNotEmpty);
 

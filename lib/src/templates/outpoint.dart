@@ -1,14 +1,18 @@
 import 'dart:typed_data';
 
-import 'package:coinlib/coinlib.dart';
-import 'package:bitcoin_flutter/src/utils/string.dart';
-import 'package:bitcoin_flutter/src/utils/uint8list.dart';
+import 'package:bitcoin_flutter/bitcoin_flutter.dart';
 
-class Outpoint extends OutPoint {
-  Outpoint(Uint8List hash, int n) : super(hash, n);
+class Outpoint {
+  Outpoint({required this.txid, required this.index});
 
-  String get txid => hash.hex;
-  int get index => n;
+  String txid;
+  int index;
 
-  Outpoint.fromHex(String txid, int index) : this(txid.fromHex, index);
+  factory Outpoint.fromBytes(Uint8List txid, int index) {
+    return Outpoint(txid: txid.hex, index: index);
+  }
+
+  String toString() {
+    return 'Outpoint{txid: $txid, index: $index}';
+  }
 }

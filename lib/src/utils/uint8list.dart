@@ -29,6 +29,19 @@ extension Uint8ListExt on Uint8List {
   String get hex {
     return HEX.encode(this);
   }
+
+  BigInt get bigint {
+    // Create an empty BigInt
+    BigInt result = BigInt.zero;
+
+    // Iterate over the bytes in the Uint8List
+    for (int i = 0; i < this.length; i++) {
+      // Left-shift the existing value by 8 bits and add the current byte
+      result = (result << 8) + BigInt.from(this[i]);
+    }
+
+    return result;
+  }
 }
 
 Uint8List concatenateUint8Lists(List<Uint8List> lists) {

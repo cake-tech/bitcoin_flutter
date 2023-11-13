@@ -3,21 +3,21 @@ import 'dart:typed_data';
 import 'package:bitcoin_flutter/bitcoin_flutter.dart';
 import 'package:bitcoin_flutter/src/utils/constants/derivation_paths.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
-import 'package:coinlib/coinlib.dart';
+import 'package:elliptic/elliptic.dart';
 import 'package:dart_bech32/dart_bech32.dart';
 import 'package:bip32/bip32.dart' as bip32;
 import 'package:bip39/bip39.dart' as bip39;
 
-class SilentPaymentAddress extends SilentPaymentReceiver {
+class SilentPaymentReceiver extends SilentPaymentAddress {
   late int version;
-  late ECPublicKey scanPubkey;
-  late ECPublicKey spendPubkey;
+  late PublicKey scanPubkey;
+  late PublicKey spendPubkey;
   late String hrp;
 
-  late ECPrivateKey scanPrivkey;
-  late ECPrivateKey spendPrivkey;
+  late PrivateKey scanPrivkey;
+  late PrivateKey spendPrivkey;
 
-  SilentPaymentAddress({
+  SilentPaymentReceiver({
     required this.version,
     required this.scanPubkey,
     required this.spendPubkey,
@@ -31,26 +31,23 @@ class SilentPaymentAddress extends SilentPaymentReceiver {
           hrp: hrp,
         );
 
-  static Future<SilentPaymentAddress> fromHd(HDWallet hd, {String? hrp, int? version}) async {
-    await loadCoinlib();
-
+  factory SilentPaymentReceiver.fromHd(HDWallet hd, {String? hrp, int? version}) {
     final scanPubkey = hd.derivePath(SCAN_PATH);
     final spendPubkey = hd.derivePath(SPEND_PATH);
 
-    return SilentPaymentAddress(
-      scanPrivkey: ECPrivateKey(scanPubkey.privKey!.fromHex),
-      spendPrivkey: ECPrivateKey(spendPubkey.privKey!.fromHex),
-      scanPubkey: ECPublicKey(scanPubkey.pubKey!.fromHex),
-      spendPubkey: ECPublicKey(spendPubkey.pubKey!.fromHex),
+    final curve = getSecp256k1();
+
+    return SilentPaymentReceiver(
+      scanPrivkey: PrivateKey.fromBytes(curve, scanPubkey.privKey!.fromHex),
+      spendPrivkey: PrivateKey.fromBytes(curve, spendPubkey.privKey!.fromHex),
+      scanPubkey: PublicKey.fromHex(curve, scanPubkey.pubKey!),
+      spendPubkey: PublicKey.fromHex(curve, spendPubkey.pubKey!),
       hrp: hrp ?? 'sp',
       version: version ?? 0,
     );
   }
 
-  static Future<SilentPaymentAddress> fromMnemonic(String mnemonic,
-      {String? hrp, int? version}) async {
-    await loadCoinlib();
-
+  factory SilentPaymentReceiver.fromMnemonic(String mnemonic, {String? hrp, int? version}) {
     final seed = bip39.mnemonicToSeed(mnemonic);
     final root = bip32.BIP32.fromSeed(
         seed,
@@ -63,22 +60,24 @@ class SilentPaymentAddress extends SilentPaymentReceiver {
     final scanPubkey = root.derivePath(SCAN_PATH);
     final spendPubkey = root.derivePath(SPEND_PATH);
 
-    return SilentPaymentAddress(
-      scanPrivkey: ECPrivateKey(scanPubkey.privateKey!),
-      spendPrivkey: ECPrivateKey(spendPubkey.privateKey!),
-      scanPubkey: ECPublicKey(scanPubkey.publicKey),
-      spendPubkey: ECPublicKey(spendPubkey.publicKey),
+    final curve = getSecp256k1();
+
+    return SilentPaymentReceiver(
+      scanPrivkey: PrivateKey.fromBytes(curve, scanPubkey.privateKey!),
+      spendPrivkey: PrivateKey.fromBytes(curve, spendPubkey.privateKey!),
+      scanPubkey: PublicKey.fromHex(curve, scanPubkey.publicKey.hex),
+      spendPubkey: PublicKey.fromHex(curve, spendPubkey.publicKey.hex),
       hrp: hrp ?? 'sp',
       version: version ?? 0,
     );
   }
 }
 
-class SilentPaymentDestination extends SilentPaymentReceiver {
+class SilentPaymentDestination extends SilentPaymentAddress {
   SilentPaymentDestination({
     required int version,
-    required ECPublicKey scanPubkey,
-    required ECPublicKey spendPubkey,
+    required PublicKey scanPubkey,
+    required PublicKey spendPubkey,
     required String hrp,
     required this.amount,
   }) : super(version: version, scanPubkey: scanPubkey, spendPubkey: spendPubkey, hrp: hrp);
@@ -86,7 +85,7 @@ class SilentPaymentDestination extends SilentPaymentReceiver {
   int amount;
 
   factory SilentPaymentDestination.fromAddress(String address, int amount) {
-    final receiver = SilentPaymentReceiver.fromString(address);
+    final receiver = SilentPaymentAddress.fromString(address);
 
     return SilentPaymentDestination(
       scanPubkey: receiver.scanPubkey,
@@ -98,14 +97,14 @@ class SilentPaymentDestination extends SilentPaymentReceiver {
   }
 }
 
-class SilentPaymentReceiver {
-  late int version;
-  late ECPublicKey scanPubkey;
-  late ECPublicKey spendPubkey;
+class SilentPaymentAddress {
+  int version;
+  PublicKey scanPubkey;
+  PublicKey spendPubkey;
   // human readable part (sprt, sp, tsp)
-  late String hrp;
+  String hrp;
 
-  SilentPaymentReceiver({
+  SilentPaymentAddress({
     required this.version,
     required this.scanPubkey,
     required this.spendPubkey,
@@ -116,7 +115,7 @@ class SilentPaymentReceiver {
     }
   }
 
-  factory SilentPaymentReceiver.fromString(String address) {
+  factory SilentPaymentAddress.fromString(String address) {
     final decoded = bech32m.decode(address, 1023);
 
     final prefix = decoded.prefix;
@@ -129,26 +128,28 @@ class SilentPaymentReceiver {
     if (version != 0) throw new ArgumentError('Invalid version');
 
     final key = bech32m.fromWords(words);
+    final curve = getSecp256k1();
 
-    return SilentPaymentReceiver(
-      scanPubkey: ECPublicKey(key.sublist(0, 33)),
-      spendPubkey: ECPublicKey(key.sublist(33)),
+    return SilentPaymentAddress(
+      scanPubkey: PublicKey.fromHex(curve, key.sublist(0, 33).hex),
+      spendPubkey: PublicKey.fromHex(curve, key.sublist(33).hex),
       hrp: prefix,
       version: version,
     );
   }
 
-  factory SilentPaymentReceiver.createLabeledSilentPaymentAddress(
-      ECPublicKey scanPubKey, ECPublicKey spendPubKey, Uint8List m,
+  factory SilentPaymentAddress.createLabeledSilentPaymentAddress(
+      PublicKey scanPubKey, PublicKey spendPubKey, Uint8List m,
       {String hrp = 'sp', int version = 0}) {
-    final tweakedSpendKey = spendPubKey.tweak(m, compress: true);
-    return SilentPaymentReceiver(
-        scanPubkey: scanPubKey, spendPubkey: tweakedSpendKey!, hrp: hrp, version: version);
+    final tweakedSpendKey = spendPubKey.tweakAdd(m.bigint);
+    return SilentPaymentAddress(
+        scanPubkey: scanPubKey, spendPubkey: tweakedSpendKey, hrp: hrp, version: version);
   }
 
   @override
   String toString() {
-    final data = bech32m.toWords(Uint8List.fromList([...scanPubkey.data, ...spendPubkey.data]));
+    final data = bech32m.toWords(Uint8List.fromList(
+        [...scanPubkey.toCompressedHex().fromHex, ...spendPubkey.toCompressedHex().fromHex]));
     final versionData = Uint8List.fromList([Bech32U5(version).value, ...data]);
 
     return bech32m.encode(Decoded(prefix: hrp, words: versionData, limit: 1180));

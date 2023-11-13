@@ -1,10 +1,17 @@
+// import 'dart:convert';
+// import 'dart:io';
+
 import 'package:bitcoin_flutter/bitcoin_flutter.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
-import 'package:coinlib/coinlib.dart';
 import 'package:test/test.dart';
 
-main() async {
-  await loadCoinlib();
+main() {
+//   final fixtures =
+//       json.decode(new File('test/fixtures/silent_payments.json').readAsStringSync(encoding: utf8));
+
+//   for (final data in fixtures) {
+
+// }
 
   group('Utils', () {
     test('can calculate hash of outpoints in tx', () {
@@ -131,7 +138,7 @@ main() async {
         final (privateKeys, expected) = data;
         final silentAddresses = SilentPayment.decodePrivateKeys(privateKeys);
         final sum = SilentPayment.getSumInputPrivKeys(silentAddresses);
-        expect(sum.data.hex, expected);
+        expect(sum.toCompressedHex(), expected);
       });
     });
   });
@@ -560,7 +567,7 @@ main() async {
 
             generatedOutputs.forEach((output) {
               final expectedPubkey = expectedDestinations[i].$1;
-              final generatedPubkey = output.$1.data.hex;
+              final generatedPubkey = output.$1.toCompressedHex();
               expect(generatedPubkey, expectedPubkey);
 
               final expectedAmount = expectedDestinations[i].$2;

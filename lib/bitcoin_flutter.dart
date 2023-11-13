@@ -18,6 +18,5 @@ export 'src/templates/outpoint.dart';
 export 'src/payments/silentpayments.dart';
 export 'src/utils/keys.dart';
 export 'src/utils/uint8list.dart';
-export 'package:coinlib/coinlib.dart' show ECPublicKey, ECPrivateKey;
 export 'package:bech32/bech32.dart';
 // TODO: Export any libraries intended for clients of this package.
