@@ -94,6 +94,8 @@ class SilentPayment {
     silentPaymentGroups.entries.forEach((group) {
       final (ecdhSharedSecret, destinations) = group.value;
 
+      print(["ECDHSHAREDSECRET:", ecdhSharedSecret ]);
+
       int n = 0;
       destinations.forEach((destination) {
         final tweak =
@@ -101,6 +103,8 @@ class SilentPayment {
 
         final res = PublicKey.fromPoint(getSecp256k1(), destination.spendPubkey)
             .tweakAdd(Uint8List.fromList(tweak.bytes).bigint);
+
+      print(["RES:", res ]);
 
         if (result.containsKey(destination.toString())) {
           result[destination.toString()]!.add((res, destination.amount));

@@ -18,10 +18,6 @@ dependencies:
       url: https://github.com/cake-tech/bech32.git
       ref: cake-0.2.2
   dart_bech32: ^2.0.0
-  bitcoin_base:
-    git:
-      url: https://github.com/saltrafael/bitcoin_base.git
-      ref: main
   elliptic:
     git:
       url: https://github.com/cake-tech/dart-elliptic

@@ -1,8 +1,9 @@
 import 'dart:typed_data';
 
-import 'package:bitcoin_flutter/bitcoin_flutter.dart';
-import 'package:bitcoin_flutter/src/utils/constants/derivation_paths.dart';
-import 'package:bitcoin_flutter/src/utils/string.dart';
+import '../bitcoin_flutter_base.dart';
+import '../utils/constants/derivation_paths.dart';
+import '../utils/string.dart';
+import '../utils/uint8list.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:dart_bech32/dart_bech32.dart';
 import 'package:bip32/bip32.dart' as bip32;

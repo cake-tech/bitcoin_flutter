@@ -4,6 +4,9 @@ import 'package:bitcoin_flutter/src/utils/string.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:crypto/crypto.dart';
 import '../utils/uint8list.dart';
+import '../ec/ec_public.dart';
+import '../models/networks.dart';
+import '../payments/address/segwit_address.dart';
 
 Uint8List? handleLabels(
   Uint8List output,
@@ -38,28 +41,38 @@ Uint8List? handleLabels(
   return null;
 }
 
-int processTweak(Uint8List spendPublicKey, Uint8List tweak, List<Uint8List> outputPubKeys,
+int processTweak(Uint8List spendPublicKey, Uint8List tweak, List<String> outputP2trAddresses,
     Map<String, Uint8List> matches,
     {Map<String, String>? labels}) {
   final curve = getSecp256k1();
   final tweakedPublicKey =
       PublicKey.fromHex(curve, spendPublicKey.hex).tweakAdd(tweak.bigint).toCompressedHex().fromHex;
 
-  for (var i = 0; i < outputPubKeys.length; i++) {
-    final output = outputPubKeys[i];
+  for (var i = 0; i < outputP2trAddresses.length; i++) {
+    final outputAddress = outputP2trAddresses[i];
 
-    if (output.sublist(1).toString() == tweakedPublicKey.sublist(1).toString()) {
+    print([
+      "OUTPUTADDRESS:",
+      P2trAddress(address: outputAddress).getProgram,
+      "TAPROOT:",
+      ECPublic.fromHex(
+              PublicKey.fromHex(curve, spendPublicKey.hex).tweakAdd(tweak.bigint).toCompressedHex())
+          .toTaprootAddress()
+          .toAddress(NetworkInfo.TESTNET)
+    ]);
+    if (outputAddress ==
+        ECPublic.fromBytes(tweakedPublicKey).toTaprootAddress().toAddress(NetworkInfo.TESTNET)) {
       // Found the tweak, this output is ours and the tweak can be used to derive the private key
-      matches[output.hex] = tweak;
-      outputPubKeys.removeAt(i);
+      matches[outputAddress] = tweak;
+      outputP2trAddresses.removeAt(i);
       return 1; // Increment counter
     }
 
     if (labels != null) {
       // Additional logic if labels are provided
-      final privateKeyTweak = handleLabels(output, tweakedPublicKey, tweak, labels);
+      final privateKeyTweak = handleLabels(tweakedPublicKey, tweakedPublicKey, tweak, labels);
       if (privateKeyTweak != null) {
-        matches[output.hex] = privateKeyTweak;
+        matches[outputAddress] = privateKeyTweak;
         return 1; // Increment counter
       }
     }
@@ -69,7 +82,7 @@ int processTweak(Uint8List spendPublicKey, Uint8List tweak, List<Uint8List> outp
 }
 
 Map<String, Uint8List> scanOutputs(Uint8List scanPrivateKey, Uint8List spendPublicKey,
-    Uint8List sumOfInputPublicKeys, Uint8List outpointHash, List<Uint8List> outputPubKeys,
+    Uint8List sumOfInputPublicKeys, Uint8List outpointHash, List<String> outputP2trAddresses,
     {Map<String, String>? labels}) {
   final curve = getSecp256k1();
   final ecdhSecret = PublicKey.fromHex(curve, sumOfInputPublicKeys.hex).tweakMul(
@@ -90,9 +103,9 @@ Map<String, Uint8List> scanOutputs(Uint8List scanPrivateKey, Uint8List spendPubl
         .convert(ecdhSecret!.toCompressedHex().fromHex.concat([serialiseUint32(n)]))
         .toString();
     counterIncrement =
-        processTweak(spendPublicKey, tweak.fromHex, outputPubKeys, matches, labels: labels);
+        processTweak(spendPublicKey, tweak.fromHex, outputP2trAddresses, matches, labels: labels);
     n += counterIncrement;
-  } while (counterIncrement > 0 && outputPubKeys.isNotEmpty);
+  } while (counterIncrement > 0 && outputP2trAddresses.isNotEmpty);
 
   return matches;
 }

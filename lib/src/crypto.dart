@@ -19,3 +19,45 @@ Uint8List hash256(Uint8List buffer) {
   Uint8List _tmp = new SHA256Digest().process(buffer);
   return new SHA256Digest().process(_tmp);
 }
+
+/// Function: doubleHash
+/// Description: Computes a double SHA-256 hash of the input data.
+/// Input: Uint8List buffer - The data to be hashed.
+/// Output: Uint8List - The resulting double SHA-256 hash.
+/// Note: Double hashing is a common cryptographic technique used to enhance data security.
+Uint8List doubleHash(Uint8List buffer) {
+  /// Compute the first SHA-256 hash of the input data.
+  Uint8List tmp = SHA256Digest().process(buffer);
+
+  /// Compute the second SHA-256 hash of the first hash.
+  return SHA256Digest().process(tmp);
+}
+
+/// Function: singleHash
+/// Description: Computes a single SHA-256 hash of the input data.
+/// Input: Uint8List buffer - The data to be hashed.
+/// Output: Uint8List - The resulting single SHA-256 hash.
+/// Note: This function calculates a single SHA-256 hash of the input data.
+Uint8List singleHash(Uint8List buffer) {
+  /// Compute a single SHA-256 hash of the input data.
+  return SHA256Digest().process(buffer);
+}
+
+/// Function: taggedHash
+/// Description: Computes a tagged hash of the input data with a provided tag.
+/// Input:
+///   - Uint8List data - The data to be hashed.
+///   - String tag - A unique tag to differentiate the hash.
+/// Output: Uint8List - The resulting tagged hash.
+/// Note: This function combines the provided tag with the input data to create a unique
+/// hash by applying a double SHA-256 hash.
+Uint8List taggedHash(Uint8List data, String tag) {
+  /// Calculate the hash of the tag as Uint8List.
+  final tagDigest = singleHash(Uint8List.fromList(tag.codeUnits));
+
+  /// Concatenate the tag hash with itself and the input data.
+  final concat = Uint8List.fromList([...tagDigest, ...tagDigest, ...data]);
+
+  /// Compute a double SHA-256 hash of the concatenated data.
+  return singleHash(concat);
+}

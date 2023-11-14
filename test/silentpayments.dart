@@ -2,7 +2,9 @@
 // import 'dart:io';
 
 import 'package:bitcoin_flutter/bitcoin_flutter.dart';
+import 'package:bitcoin_flutter/src/payments/address/segwit_address.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
+import '../lib/src/ec/ec_public.dart';
 import 'package:test/test.dart';
 
 main() {
@@ -568,6 +570,9 @@ main() {
             generatedOutputs.forEach((output) {
               final expectedPubkey = expectedDestinations[i].$1;
               final generatedPubkey = output.$1.toCompressedHex();
+
+              print(ECPublic.fromHex(generatedPubkey).toTaprootAddress().toScriptPubKey().toHex());
+              print(P2trAddress(pubkey: generatedPubkey, network: testnet).toScriptPubKey().toHex());
               expect(generatedPubkey, expectedPubkey);
 
               final expectedAmount = expectedDestinations[i].$2;
