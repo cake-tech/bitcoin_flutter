@@ -47,8 +47,7 @@ abstract class SegwitAddress implements BitcoinAddress {
     Segwit? convert;
     try {
       convert = segwit.decode(address);
-    } catch (e) {
-    }
+    } catch (_) {}
     if (convert == null) {
       throw ArgumentError("Invalid value for parameter address.");
     }
@@ -104,6 +103,21 @@ class P2trAddress extends SegwitAddress {
     String? pubkey,
     NetworkType? network,
   }) : super(version: P2TR_ADDRESS_V1, pubkey: pubkey, network: network);
+
+  /// returns the address's string encoding (Bech32m different from Bech32)
+  @override
+  String toAddress(NetworkInfo networkType) {
+    final bytes = hexToBytes(_program);
+    String? sw;
+    try {
+      sw = segwit.encode(Segwit(networkType.bech32, segwitNumVersion, bytes), isBech32m: true);
+    } catch (_) {}
+    if (sw == null) {
+      throw ArgumentError("invalid address");
+    }
+
+    return sw;
+  }
 
   /// returns the scriptPubKey of a P2TR witness script
   @override
