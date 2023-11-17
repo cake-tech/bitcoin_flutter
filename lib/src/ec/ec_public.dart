@@ -162,6 +162,12 @@ class ECPublic {
   }
 
   /// returns the x coordinate only as hex string after tweaking (needed for taproot)
+  String toTapPoint() {
+    final point = taprootPoint(_key);
+    return bytesToHex(point.sublist(0, 32));
+  }
+
+  /// returns the x coordinate only as hex string after tweaking (needed for taproot)
   String toTapRotHex({List<dynamic>? script}) {
     final tweak = _calculateTweek(_key, script: script);
     final point = tweakTaprootPoint(_key, tweak);

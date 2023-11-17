@@ -45,23 +45,20 @@ int processTweak(Uint8List spendPublicKey, Uint8List tweak, List<String> outputP
     Map<String, Uint8List> matches,
     {Map<String, String>? labels}) {
   final curve = getSecp256k1();
-  final tweakedPublicKey =
-      PublicKey.fromHex(curve, spendPublicKey.hex).tweakAdd(tweak.bigint).toCompressedHex().fromHex;
+
+  // pubkey generated from tweak
+  final tweakedPublicKey = PublicKey.fromHex(curve, spendPublicKey.hex).tweakAdd(tweak.bigint);
+  final tweakedPublicKeyBytes = tweakedPublicKey.toCompressedHex().fromHex;
+
+  final tapPoint = ECPublic.fromHex(tweakedPublicKey.toHex()).toTapPoint();
+  // taproot address result from tweaked pubkey
+  final tweakedP2trAddress = P2trAddress(program: tapPoint).toAddress(NetworkInfo.TESTNET);
 
   for (var i = 0; i < outputP2trAddresses.length; i++) {
+    // the taproot adress being paid to in the output to check
     final outputAddress = outputP2trAddresses[i];
 
-    print([
-      "OUTPUTADDRESS:",
-      P2trAddress(address: outputAddress).getProgram,
-      "TAPROOT:",
-      ECPublic.fromHex(
-              PublicKey.fromHex(curve, spendPublicKey.hex).tweakAdd(tweak.bigint).toCompressedHex())
-          .toTaprootAddress()
-          .toAddress(NetworkInfo.TESTNET)
-    ]);
-    if (outputAddress ==
-        ECPublic.fromBytes(tweakedPublicKey).toTaprootAddress().toAddress(NetworkInfo.TESTNET)) {
+    if (outputAddress == tweakedP2trAddress) {
       // Found the tweak, this output is ours and the tweak can be used to derive the private key
       matches[outputAddress] = tweak;
       outputP2trAddresses.removeAt(i);
@@ -70,7 +67,8 @@ int processTweak(Uint8List spendPublicKey, Uint8List tweak, List<String> outputP
 
     if (labels != null) {
       // Additional logic if labels are provided
-      final privateKeyTweak = handleLabels(tweakedPublicKey, tweakedPublicKey, tweak, labels);
+      final privateKeyTweak =
+          handleLabels(tweakedPublicKeyBytes, tweakedPublicKeyBytes, tweak, labels);
       if (privateKeyTweak != null) {
         matches[outputAddress] = privateKeyTweak;
         return 1; // Increment counter

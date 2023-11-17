@@ -5,7 +5,7 @@ import '../utils/constants/derivation_paths.dart';
 import '../utils/string.dart';
 import '../utils/uint8list.dart';
 import 'package:elliptic/elliptic.dart';
-import 'package:dart_bech32/dart_bech32.dart';
+import 'package:bech32/bech32.dart';
 import 'package:bip32/bip32.dart' as bip32;
 import 'package:bip39/bip39.dart' as bip39;
 
@@ -119,16 +119,16 @@ class SilentPaymentAddress {
   factory SilentPaymentAddress.fromString(String address) {
     final decoded = bech32m.decode(address, 1023);
 
-    final prefix = decoded.prefix;
+    final prefix = decoded.hrp;
     if (prefix != 'sp' && prefix != 'sprt' && prefix != 'tsp') {
       throw Exception('Invalid prefix: $prefix');
     }
 
-    final words = decoded.words.sublist(1);
+    final words = decoded.data;
     final version = words[0];
     if (version != 0) throw new ArgumentError('Invalid version');
 
-    final key = bech32m.fromWords(words);
+    final key = fromWords(Uint8List.fromList(decoded.data.sublist(1)));
     final curve = getSecp256k1();
 
     return SilentPaymentAddress(
@@ -149,11 +149,11 @@ class SilentPaymentAddress {
 
   @override
   String toString() {
-    final data = bech32m.toWords(Uint8List.fromList(
+    final data = toWords(Uint8List.fromList(
         [...scanPubkey.toCompressedHex().fromHex, ...spendPubkey.toCompressedHex().fromHex]));
     final versionData = Uint8List.fromList([Bech32U5(version).value, ...data]);
 
-    return bech32m.encode(Decoded(prefix: hrp, words: versionData, limit: 1180));
+    return bech32m.encode(Bech32(hrp, versionData), 1023);
   }
 }
 

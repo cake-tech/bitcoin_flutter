@@ -94,25 +94,21 @@ class SilentPayment {
     silentPaymentGroups.entries.forEach((group) {
       final (ecdhSharedSecret, destinations) = group.value;
 
-      print(["ECDHSHAREDSECRET:", ecdhSharedSecret ]);
-
-      int n = 0;
+      int k = 0;
       destinations.forEach((destination) {
-        final tweak =
-            sha256.convert(ecdhSharedSecret.toCompressedHex().fromHex.concat([serialiseUint32(n)]));
+        final t_k =
+            sha256.convert(ecdhSharedSecret.toCompressedHex().fromHex.concat([serialiseUint32(k)]));
 
-        final res = PublicKey.fromPoint(getSecp256k1(), destination.spendPubkey)
-            .tweakAdd(Uint8List.fromList(tweak.bytes).bigint);
-
-      print(["RES:", res ]);
+        final P_mn = PublicKey.fromPoint(getSecp256k1(), destination.spendPubkey)
+            .tweakAdd(Uint8List.fromList(t_k.bytes).bigint);
 
         if (result.containsKey(destination.toString())) {
-          result[destination.toString()]!.add((res, destination.amount));
+          result[destination.toString()]!.add((P_mn, destination.amount));
         } else {
-          result[destination.toString()] = [(res, destination.amount)];
+          result[destination.toString()] = [(P_mn, destination.amount)];
         }
 
-        n++;
+        k++;
       });
     });
 

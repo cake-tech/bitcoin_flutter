@@ -76,6 +76,26 @@ Uint8List reEncodedFromForm(Uint8List p, bool compressed) {
   return encode;
 }
 
+Uint8List taprootPoint(Uint8List pub) {
+  BigInt x = decodeBigInt(pub.sublist(0, 32));
+  BigInt y = decodeBigInt(pub.sublist(32, pub.length));
+  if (y.isOdd) {
+    y = prime - y;
+  }
+
+  var Q = secp256k1.curve.createPoint(x, y);
+
+  if (Q.y!.toBigInteger()!.isOdd) {
+    y = prime - Q.y!.toBigInteger()!;
+    Q = secp256k1.curve.createPoint(Q.x!.toBigInteger()!, y);
+  }
+  x = Q.x!.toBigInteger()!;
+  y = Q.y!.toBigInteger()!;
+  final r = padUint8ListTo32(encodeBigInt(x));
+  final s = padUint8ListTo32(encodeBigInt(y));
+  return Uint8List.fromList([...r, ...s]);
+}
+
 Uint8List tweakTaprootPoint(Uint8List pub, Uint8List tweak) {
   BigInt x = decodeBigInt(pub.sublist(0, 32));
   BigInt y = decodeBigInt(pub.sublist(32, pub.length));
