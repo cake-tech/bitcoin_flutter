@@ -23,6 +23,7 @@ export 'src/payments/silentpayments.dart';
 export 'src/utils/keys.dart';
 export 'src/utils/uint8list.dart';
 export 'src/utils/string.dart';
+export 'src/formatting/bytes_num_formatting.dart';
 export 'src/classify.dart';
 export 'package:bech32/bech32.dart';
 export 'package:elliptic/elliptic.dart';

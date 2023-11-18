@@ -16,5 +16,5 @@ bool outputCheck(Uint8List script) {
 
 bool taprootOutputCheck(Uint8List script) {
   final buffer = bscript.compile(script);
-  return buffer.length == 34 && buffer[0] == OPS['OP_1'];
+  return buffer[0] == OPS['OP_1'];
 }

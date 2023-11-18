@@ -7,6 +7,7 @@ import '../payments/script/script.dart';
 import '../crypto.dart';
 import '../formatting/bytes_num_formatting.dart';
 import 'ec_encryption.dart';
+import 'package:bitcoin_base/bitcoin.dart' as bitcoin_base;
 
 class ECPublic {
   /// Constructs an ECPublic key from a byte representation.
@@ -198,6 +199,9 @@ class ECPublic {
   /// based on the provided argument. It handles different argument types, including scripts
   /// and lists of scripts.
   Uint8List _getTagHashedMerkleRoot(dynamic args) {
+    if (args is bitcoin_base.Script) {
+      args = Script(script: args.script);
+    }
     if (args is Script) {
       final tagged = _tapleafTaggedHash(args);
       return tagged;
