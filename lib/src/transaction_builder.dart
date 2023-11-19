@@ -252,7 +252,7 @@ class TransactionBuilder {
         signed = true;
       } else {
         final signature = keyPair.sign(signatureHash);
-        input.signatures![i] = signature;
+        input.signatures![i] = bscript.encodeSignature(signature, hashType);
         signed = true;
       }
     }
