@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:bitcoin_flutter/src/utils/bigint.dart';
 import '../formatting/bytes_num_formatting.dart';
 import "package:pointycastle/ecc/curves/secp256k1.dart" show ECCurve_secp256k1;
 import 'package:pointycastle/ecc/api.dart' show ECPoint;
@@ -92,8 +93,8 @@ Uint8List taprootPoint(Uint8List pub) {
   }
   x = Q.x!.toBigInteger()!;
   y = Q.y!.toBigInteger()!;
-  final r = padUint8ListTo32(encodeBigInt(x));
-  final s = padUint8ListTo32(encodeBigInt(y));
+  final r = padUint8ListTo32(x.decode);
+  final s = padUint8ListTo32(y.decode);
   return Uint8List.fromList([...r, ...s]);
 }
 
@@ -115,12 +116,12 @@ Uint8List tweakTaprootPoint(Uint8List pub, Uint8List tweak) {
   }
   x = Q.x!.toBigInteger()!;
   y = Q.y!.toBigInteger()!;
-  final r = padUint8ListTo32(encodeBigInt(x));
-  final s = padUint8ListTo32(encodeBigInt(y));
+  final r = padUint8ListTo32(x.decode);
+  final s = padUint8ListTo32(y.decode);
   return Uint8List.fromList([...r, ...s]);
 }
 
-Uint8List _xorBytes(Uint8List a, Uint8List b) {
+Uint8List xorBytes(Uint8List a, Uint8List b) {
   if (a.length != b.length) {
     throw ArgumentError("Input lists must have the same length");
   }
@@ -150,9 +151,9 @@ Uint8List schnorrSign(Uint8List msg, Uint8List secret, Uint8List aux) {
   if (P.y!.toBigInteger()!.isOdd) {
     d = n - d;
   }
-  final t = _xorBytes(encodeBigInt(d), taggedHash(aux, "BIP0340/aux"));
+  final t = xorBytes(d.decode, taggedHash(aux, "BIP0340/aux"));
   final kHash = taggedHash(
-      Uint8List.fromList([...t, ...encodeBigInt(P.x!.toBigInteger()!), ...msg]), "BIP0340/nonce");
+      Uint8List.fromList([...t, ...P.x!.toBigInteger()!.decode, ...msg]), "BIP0340/nonce");
   final k0 = decodeBigInt(kHash) % n;
   if (k0 == BigInt.zero) {
     throw const FormatException('Failure. This happens only with negligible probability.');
@@ -163,14 +164,13 @@ Uint8List schnorrSign(Uint8List msg, Uint8List secret, Uint8List aux) {
     k = n - k;
   }
   final eHash = taggedHash(
-      Uint8List.fromList(
-          [...encodeBigInt(R.x!.toBigInteger()!), ...encodeBigInt(P.x!.toBigInteger()!), ...msg]),
+      Uint8List.fromList([...R.x!.toBigInteger()!.decode, ...P.x!.toBigInteger()!.decode, ...msg]),
       "BIP0340/challenge");
 
   final e = decodeBigInt(eHash) % n;
   final eKey = (k + e * d) % n;
-  final sig = Uint8List.fromList([...encodeBigInt(R.x!.toBigInteger()!), ...encodeBigInt(eKey)]);
-  final verify = verifySchnorr(msg, encodeBigInt(P.x!.toBigInteger()!), sig);
+  final sig = Uint8List.fromList([...R.x!.toBigInteger()!.decode, ...eKey.decode]);
+  final verify = verifySchnorr(msg, P.x!.toBigInteger()!.decode, sig);
   if (!verify) {
     throw const FormatException('The created signature does not pass verification.');
   }
@@ -187,7 +187,7 @@ bool verifySchnorr(Uint8List message, Uint8List publicKey, Uint8List signatur) {
   if (signatur.length != 64) {
     throw ArgumentError("The signature must be a 64-byte array.");
   }
-  final P = _liftX(decodeBigInt(publicKey));
+  final P = liftX(decodeBigInt(publicKey));
   final r = decodeBigInt(signatur.sublist(0, 32));
   final s = decodeBigInt(signatur.sublist(32, 64));
   if (P == null || r >= prime || s >= n) {
@@ -209,7 +209,7 @@ bool verifySchnorr(Uint8List message, Uint8List publicKey, Uint8List signatur) {
   return true;
 }
 
-ECPoint? _liftX(BigInt x) {
+ECPoint? liftX(BigInt x) {
   if (x >= prime) {
     return null;
   }
@@ -271,5 +271,5 @@ Uint8List tweekTapprotPrivate(Uint8List secret, BigInt tweek) {
     negatedKey = _negatePrivateKey(secret);
   }
   final tw = (negatedKey + tweek) % n;
-  return encodeBigInt(tw);
+  return tw.decode;
 }

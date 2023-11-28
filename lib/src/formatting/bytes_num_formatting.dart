@@ -41,37 +41,7 @@ BigInt decodeBigInt(List<int> bytes) {
   return result;
 }
 
-/// Encode a BigInt into bytes using big-endian encoding.
-Uint8List encodeBigInt(BigInt number) {
-  int needsPaddingByte;
-  int rawSize;
-
-  if (number > BigInt.zero) {
-    rawSize = (number.bitLength + 7) >> 3;
-    needsPaddingByte =
-        ((number >> (rawSize - 1) * 8) & BigInt.from(0x80)) == BigInt.from(0x80)
-            ? 1
-            : 0;
-
-    if (rawSize < 32) {
-      needsPaddingByte = 1;
-    }
-  } else {
-    needsPaddingByte = 0;
-    rawSize = (number.bitLength + 8) >> 3;
-  }
-
-  final size = rawSize < 32 ? rawSize + needsPaddingByte : rawSize;
-  var result = Uint8List(size);
-  for (int i = 0; i < size; i++) {
-    result[size - i - 1] = (number & BigInt.from(0xff)).toInt();
-    number = number >> 8;
-  }
-  return result;
-}
-
-List<int>? convertBits(List<int> data, int fromBits, int toBits,
-    {bool pad = true}) {
+List<int>? convertBits(List<int> data, int fromBits, int toBits, {bool pad = true}) {
   int acc = 0;
   int bits = 0;
   List<int> ret = [];
@@ -145,8 +115,7 @@ Uint8List prependVarint(Uint8List data) {
     size = 8;
   }
 
-  int value =
-      ByteData.sublistView(byteint, 1, 1 + size).getInt64(0, Endian.little);
+  int value = ByteData.sublistView(byteint, 1, 1 + size).getInt64(0, Endian.little);
   return (value, size + 1);
 }
 
@@ -239,4 +208,3 @@ int binaryToByte(String binary) {
 String bytesToBinary(Uint8List bytes) {
   return bytes.map((byte) => byte.toRadixString(2).padLeft(8, '0')).join('');
 }
-

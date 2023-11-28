@@ -20,8 +20,6 @@ dependencies:
   elliptic:
     path: /home/rafael/Storage/Repositories/dart-elliptic
   bitcoin_base: ^0.5.0
-  schnorr:
-    path: /home/rafael/Storage/Repositories/dart-schnorr
 
 dev_dependencies:
   test: ^1.21.1

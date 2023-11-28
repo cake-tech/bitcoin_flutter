@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:bitcoin_flutter/src/utils/bigint.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:bitcoin_flutter/src/payments/scanning.dart';
 import 'package:bitcoin_flutter/src/payments/silentpayments.dart';
@@ -10,9 +11,9 @@ import 'package:bitcoin_flutter/src/utils/uint8list.dart';
 import 'package:bitcoin_flutter/src/utils/keys.dart';
 import 'package:bitcoin_flutter/src/templates/silentpaymentaddress.dart';
 import 'package:bitcoin_flutter/src/templates/outpoint.dart';
+import 'package:bitcoin_flutter/src/ec/schnorr.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/digests/sha256.dart';
-import 'package:schnorr/schnorr.dart';
 import 'package:test/test.dart';
 
 main() {
@@ -75,7 +76,7 @@ main() {
       }
 
       final msg = SHA256Digest().process(Uint8List.fromList(utf8.encode('message')));
-      // final aux = SHA256Digest().process(Uint8List.fromList(utf8.encode('random auxiliary data')));
+      final aux = SHA256Digest().process(Uint8List.fromList(utf8.encode('random auxiliary data')));
 
       // Test receiving
       for (var receivingTest in testCase['receiving']) {
@@ -154,12 +155,14 @@ main() {
             fullPrivateKey.negate();
           }
 
-          final sig = deterministicSign(fullPrivateKey, msg);
-          expect(verify(PublicKey.fromHex(curve, pubkey), msg, sig), true);
+          // Sign the message with schnorr
+          final sig = schnorrSign(msg, fullPrivateKey.D.decode, aux);
 
-          final expectedSignature = expectedDestinations[i]["signature"];
-          print([sig, expectedSignature]);
-          expect(sig, expectedSignature);
+          // Verify the message is correct
+          expect(verifySchnorr(msg, pubkey.fromHex, sig), true);
+
+          // Verify the signature is correct
+          expect(sig.hex, expectedDestinations[i]["signature"]);
 
           i++;
         }
