@@ -4,6 +4,7 @@ import 'package:bitcoin_flutter/src/templates/outpoint.dart';
 import 'package:bitcoin_flutter/src/utils/int.dart';
 import 'package:bitcoin_flutter/src/utils/keys.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
+import 'package:bitcoin_flutter/src/formatting/bytes_num_formatting.dart';
 import 'package:crypto/crypto.dart';
 import 'package:bitcoin_flutter/src/templates/silentpaymentaddress.dart';
 import 'package:bitcoin_flutter/src/utils/uint8list.dart';
@@ -15,63 +16,68 @@ class SilentPayment {
   static List<Outpoint> decodeOutpoints(List<(String, int)> outpoints) =>
       outpoints.map((e) => Outpoint(txid: e.$1, index: e.$2)).toList();
 
+  // https://github.com/bitcoin/bips/blob/c55f80c53c98642357712c1839cfdc0551d531c4/bip-0352.mediawiki#outpoints-hash
+  // - The sender and receiver MUST calculate an outpoints hash for the transaction in the following manner:
   static Uint8List hashOutpoints(List<Outpoint> sendingData) {
     final outpoints = <Uint8List>[];
 
+    // - Collect each outpoint used as an input to the transaction
     for (final outpoint in sendingData) {
       final bytes = outpoint.txid.fromHex;
       final vout = outpoint.index;
 
       outpoints.add(concatenateUint8Lists(
-          [Uint8List.fromList(bytes.reversed.toList()), vout.toBytesLittleEndian]));
+          [Uint8List.fromList(bytes.reversed.toList()), vout.toLittleEndianBytes]));
     }
 
+    // - Let outpoints = outpoint_0 || ... || outpoint_n, sorted lexicographically by txid and vout, ascending order
     outpoints.sort((a, b) => a.compare(b));
 
-    final engine = sha256.convert(concatenateUint8Lists(outpoints));
-
-    return Uint8List.fromList(engine.bytes);
+    // - Let outpoints_hash = sha256(outpoints)
+    return Uint8List.fromList(sha256.convert(concatenateUint8Lists(outpoints)).bytes);
   }
 
-  static List<PrivateKeyInfo> decodePrivateKeys(List<(String, bool)> inputPrivKeys) => inputPrivKeys
-      .map((input) => PrivateKeyInfo(PrivateKey.fromHex(getSecp256k1(), input.$1), input.$2))
-      .toList();
+  // https://github.com/bitcoin/bips/blob/c55f80c53c98642357712c1839cfdc0551d531c4/bip-0352.mediawiki#creating-outputs
+  static Map<String, List<(PublicKey, int)>> generateMultipleRecipientPubkeys(
+      List<PrivateKeyInfo> inputPrivKeyInfos,
+      Uint8List outpointsHash,
+      List<SilentPaymentDestination> silentPaymentDestinations) {
+    final curve = getSecp256k1();
 
-  static PrivateKey getSumInputPrivKeys(List<PrivateKeyInfo> senderSecretKeys) {
-    List<PrivateKey> negatedKeys = [];
+    // - Let a_sum = a_0 + a_1 + ... + a_n, where each a_i has been negated if necessary
+    PrivateKey? a_sum;
+    PublicKey? A_sum;
 
-    for (final info in senderSecretKeys) {
+    // - Collect the private keys for each input from the Inputs For Shared Secret Derivation list
+    for (final info in inputPrivKeyInfos) {
       final key = info.key;
       final isTaproot = info.isTaproot;
 
+      PrivateKey? negated;
+
+      // - For each private key a_i corresponding to a BIP341 taproot output, check that the private key produces a point with an even y-value and negate the private key if not
       if (isTaproot && key.toCompressedHex().fromHex[0] == 0x03) {
-        negatedKeys.add(PrivateKey(getSecp256k1(), key.D).negate()!);
+        negated = PrivateKey(curve, key.D).negate()!;
       } else {
-        negatedKeys.add(key);
+        negated = PrivateKey(curve, key.D);
+      }
+
+      if (a_sum == null) {
+        a_sum = negated;
+        A_sum = negated.publicKey;
+      } else {
+        a_sum = a_sum.tweakAdd(negated.D);
+        A_sum!.pubkeyAdd(negated.publicKey);
       }
     }
 
-    final head = negatedKeys.first;
-    final tail = negatedKeys.sublist(1);
-
-    final result = tail.fold<PrivateKey>(
-      head,
-      (acc, item) =>
-          PrivateKey(getSecp256k1(), acc.D).tweakAdd(item.toCompressedHex().fromHex.bigint)!,
-    );
-
-    return result;
-  }
-
-  static Map<String, List<(PublicKey, int)>> generateMultipleRecipientPubkeys(PrivateKey sum,
-      Uint8List outpointHash, List<SilentPaymentDestination> silentPaymentDestinations) {
     // Group each destination by a different ecdhSharedSecret
     // { <scanPubKey>: (<ecdhSharedSecret>, [<silentPaymentDestination1>, <silentPaymentDestination2>...]) }
     Map<String, (PublicKey, List<SilentPaymentDestination>)> silentPaymentGroups = {};
 
     silentPaymentDestinations.forEach((silentPaymentDestination) {
-      final scanPubKey = silentPaymentDestination.scanPubkey;
-      final scanPubKeyStr = scanPubKey.toCompressedHex();
+      final B_scan = silentPaymentDestination.scanPubkey;
+      final scanPubKeyStr = B_scan.toCompressedHex();
 
       if (silentPaymentGroups.containsKey(scanPubKeyStr)) {
         // Current key already in silentPaymentGroups, simply add up the new destination
@@ -81,9 +87,9 @@ class SilentPayment {
             (ecdhSharedSecret, [...recipients, silentPaymentDestination]);
       } else {
         // New silent payment destination, calculate a new ecdhSharedSecret
-        final ecdhSharedSecret = PublicKey.fromPoint(getSecp256k1(), scanPubKey)
-            .tweakMul(outpointHash.bigint)!
-            .tweakMul(sum.toCompressedHex().fromHex.bigint)!;
+        final senderPartialSecret = PrivateKey(curve, a_sum!.D).tweakMul(outpointsHash.bigint)!.D;
+        final ecdhSharedSecret = PublicKey.fromPoint(curve, B_scan).tweakMul(senderPartialSecret)!;
+
         silentPaymentGroups[scanPubKeyStr] = (ecdhSharedSecret, [silentPaymentDestination]);
       }
     });
@@ -97,9 +103,9 @@ class SilentPayment {
       int k = 0;
       destinations.forEach((destination) {
         final t_k =
-            sha256.convert(ecdhSharedSecret.toCompressedHex().fromHex.concat([serialiseUint32(k)]));
+            sha256.convert(ecdhSharedSecret.toCompressedHex().fromHex.concat([k.toBigEndianBytes]));
 
-        final P_mn = PublicKey.fromPoint(getSecp256k1(), destination.spendPubkey)
+        final P_mn = PublicKey.fromPoint(curve, destination.spendPubkey)
             .tweakAdd(Uint8List.fromList(t_k.bytes).bigint);
 
         if (result.containsKey(destination.toString())) {
@@ -114,11 +120,4 @@ class SilentPayment {
 
     return result;
   }
-}
-
-Uint8List serialiseUint32(int n) {
-  Uint8List buf = Uint8List(4);
-  ByteData byteData = ByteData.view(buf.buffer);
-  byteData.setUint32(0, n, Endian.big);
-  return buf;
 }

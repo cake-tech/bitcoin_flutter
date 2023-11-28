@@ -1,5 +1,3 @@
-import '../utils/uint8list.dart';
-import '../utils/string.dart';
 import 'package:elliptic/elliptic.dart';
 
 class PrivateKeyInfo {
@@ -29,8 +27,7 @@ PublicKey getSumInputPubKeys(List<String> pubkeys) {
 
   final result = tail.fold<PublicKey>(
     head,
-    (acc, item) =>
-        PublicKey(getSecp256k1(), acc.X, acc.Y).tweakAdd(item.toCompressedHex().fromHex.bigint),
+    (acc, item) => PublicKey(getSecp256k1(), acc.X, acc.Y).pubkeyAdd(item),
   );
 
   return result;

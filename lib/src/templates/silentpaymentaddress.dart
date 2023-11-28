@@ -32,6 +32,18 @@ class SilentPaymentReceiver extends SilentPaymentAddress {
           hrp: hrp,
         );
 
+  factory SilentPaymentReceiver.fromPrivKeys(
+      {required PrivateKey scanPrivkey, required spendPrivkey, String? hrp, int? version}) {
+    return SilentPaymentReceiver(
+      scanPrivkey: scanPrivkey,
+      spendPrivkey: spendPrivkey,
+      scanPubkey: scanPrivkey.publicKey,
+      spendPubkey: spendPrivkey.publicKey,
+      hrp: hrp ?? 'sp',
+      version: version ?? 0,
+    );
+  }
+
   factory SilentPaymentReceiver.fromHd(HDWallet hd, {String? hrp, int? version}) {
     final scanPubkey = hd.derivePath(SCAN_PATH);
     final spendPubkey = hd.derivePath(SPEND_PATH);
@@ -140,11 +152,10 @@ class SilentPaymentAddress {
   }
 
   factory SilentPaymentAddress.createLabeledSilentPaymentAddress(
-      PublicKey scanPubKey, PublicKey spendPubKey, Uint8List m,
+      PublicKey B_scan, PublicKey B_spend, Uint8List m,
       {String hrp = 'sp', int version = 0}) {
-    final tweakedSpendKey = spendPubKey.tweakAdd(m.bigint);
-    return SilentPaymentAddress(
-        scanPubkey: scanPubKey, spendPubkey: tweakedSpendKey, hrp: hrp, version: version);
+    final B_m = PublicKey.fromPoint(getSecp256k1(), B_spend).tweakAdd(m.bigint);
+    return SilentPaymentAddress(scanPubkey: B_scan, spendPubkey: B_m, hrp: hrp, version: version);
   }
 
   @override
