@@ -30,7 +30,7 @@ abstract class SegwitAddress implements BitcoinAddress {
     if (program != null) {
       _program = program;
     } else if (address != null) {
-      _program = _addressToHash(address);
+      _program = _addressToHash(address, network: network);
     } else if (script != null) {
       _program = _scriptToHash(script);
     }
@@ -43,16 +43,20 @@ abstract class SegwitAddress implements BitcoinAddress {
   final String version;
   late final int segwitNumVersion;
 
-  String _addressToHash(String address) {
+  String _addressToHash(String address, {NetworkType? network}) {
+    network ??= bitcoin;
     Segwit? convert;
     try {
-      convert = segwit.decode(address);
+      convert = segwit.decode(address, isBech32m: this.version == P2TR_ADDRESS_V1);
     } catch (_) {}
     if (convert == null) {
       throw ArgumentError("Invalid value for parameter address.");
     }
-    final version = convert.version;
-    if (version != segwitNumVersion) {
+
+    if (network.bech32 != convert.hrp)
+      throw new ArgumentError('Invalid prefix or Network mismatch');
+
+    if (convert.version != segwitNumVersion) {
       throw ArgumentError("Invalid segwit version.");
     }
     return bytesToHex(convert.program);
@@ -81,8 +85,12 @@ abstract class SegwitAddress implements BitcoinAddress {
 }
 
 class P2wpkhAddress extends SegwitAddress {
+  static get REGEX => RegExp(r'^(bc|tb)1[ac-hj-np-z02-9]{25,39}$');
+
   /// Encapsulates a P2WPKH address.
-  P2wpkhAddress({super.address, super.program, super.version = P2WPKH_ADDRESS_V0});
+  P2wpkhAddress(
+      {super.address, super.program, super.version = P2WPKH_ADDRESS_V0, NetworkType? network})
+      : super(network: network);
 
   /// returns the scriptPubKey of a P2WPKH witness script
   @override
@@ -96,6 +104,9 @@ class P2wpkhAddress extends SegwitAddress {
 }
 
 class P2trAddress extends SegwitAddress {
+  static get REGEX =>
+      RegExp(r'^(bc)|(tb)1p([ac-hj-np-z02-9]{39}|[ac-hj-np-z02-9]{59})|1[ac-hj-np-z02-9]{8,89}$');
+
   /// Encapsulates a P2TR (Taproot) address.
   P2trAddress({
     super.program,

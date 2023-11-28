@@ -111,6 +111,26 @@ main() {
           Address.validateAddress('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', NETWORKS.testnet),
           false);
     });
+    test('bech32m addresses and valid network', () {
+      expect(
+          Address.validateAddress(
+              'tb1pk426x6qvmncj5vzhtp5f2pzhdu4qxsshszswga8ea6sycj9nulmsu7syz0', NETWORKS.testnet),
+          true);
+      expect(
+          Address.validateAddress(
+              'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7kt5nd6y'),
+          true);
+    });
+    test('bech32m addresses and invalid network', () {
+      expect(
+          Address.validateAddress('tb1pk426x6qvmncj5vzhtp5f2pzhdu4qxsshszswga8ea6sycj9nulmsu7syz0'),
+          false);
+      expect(
+          Address.validateAddress(
+              'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7kt5nd6y',
+              NETWORKS.testnet),
+          false);
+    });
     test('invalid addresses', () {
       expect(Address.validateAddress('3333333casca'), false);
     });

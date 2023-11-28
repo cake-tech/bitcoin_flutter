@@ -4,13 +4,13 @@ import '../../models/networks.dart';
 import '../../formatting/bytes_num_formatting.dart';
 import '../../crypto.dart';
 import 'package:convert/convert.dart';
-import 'package:bs58check/bs58check.dart' as bs58check;
+import 'package:bs58check/bs58check.dart';
 
 bool isValidAddress(String address, AddressType type, {NetworkType? network}) {
   if (address.length < 26 || address.length > 35) {
     return false;
   }
-  final decode = bs58check.decode(address);
+  final decode = base58.decode(address);
   final int networkPrefix = decode[0];
   Uint8List data = decode.sublist(0, decode.length - 4);
   Uint8List checksum = decode.sublist(decode.length - 4);
