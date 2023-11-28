@@ -16,5 +16,5 @@ enum AddressType {
 abstract class BitcoinAddress {
   AddressType get type;
   Script toScriptPubKey();
-  String toAddress(NetworkInfo networkType);
+  String toAddress(NetworkType networkType);
 }

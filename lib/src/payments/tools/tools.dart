@@ -6,7 +6,7 @@ import '../../crypto.dart';
 import 'package:convert/convert.dart';
 import 'package:bs58check/bs58check.dart' as bs58check;
 
-bool isValidAddress(String address, AddressType type, {NetworkInfo? network}) {
+bool isValidAddress(String address, AddressType type, {NetworkType? network}) {
   if (address.length < 26 || address.length > 35) {
     return false;
   }
@@ -23,8 +23,8 @@ bool isValidAddress(String address, AddressType type, {NetworkInfo? network}) {
       if (network != null) {
         return networkPrefix == network.p2pkhPrefix;
       }
-      return networkPrefix == NetworkInfo.BITCOIN.p2pkhPrefix ||
-          networkPrefix == NetworkInfo.TESTNET.p2pkhPrefix;
+      return networkPrefix == NetworkType.BITCOIN.p2pkhPrefix ||
+          networkPrefix == NetworkType.TESTNET.p2pkhPrefix;
     case AddressType.p2pkhInP2sh:
     case AddressType.p2pkInP2sh:
     case AddressType.p2wshInP2sh:
@@ -32,8 +32,8 @@ bool isValidAddress(String address, AddressType type, {NetworkInfo? network}) {
       if (network != null) {
         return networkPrefix == network.p2shPrefix;
       }
-      return networkPrefix == NetworkInfo.BITCOIN.p2shPrefix ||
-          networkPrefix == NetworkInfo.TESTNET.p2shPrefix;
+      return networkPrefix == NetworkType.BITCOIN.p2shPrefix ||
+          networkPrefix == NetworkType.TESTNET.p2shPrefix;
     default:
   }
   return true;

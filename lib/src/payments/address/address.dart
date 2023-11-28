@@ -15,7 +15,7 @@ abstract class BipAddress implements BitcoinAddress {
   /// [hash160] the hash160 string representation of the address; hash160 represents
   /// two consequtive hashes of the public key or the redeam script, first
   /// a SHA-256 and then an RIPEMD-160
-  BipAddress({String? address, String? hash160, Script? script, NetworkInfo? network}) {
+  BipAddress({String? address, String? hash160, Script? script, NetworkType? network}) {
     if (hash160 != null) {
       if (!isValidHash160(hash160)) {
         throw Exception("Invalid value for parameter hash160.");
@@ -55,7 +55,7 @@ abstract class BipAddress implements BitcoinAddress {
 
   /// returns the address's string encoding
   @override
-  String toAddress(NetworkInfo networkType, {Uint8List? h160}) {
+  String toAddress(NetworkType networkType, {Uint8List? h160}) {
     Uint8List tobytes = h160 ?? hexToBytes(_h160);
     switch (type) {
       case AddressType.p2wpkhInP2sh:
@@ -123,7 +123,7 @@ class P2pkAddress extends BipAddress {
   }
 
   @override
-  String toAddress(NetworkInfo networkType, {Uint8List? h160}) {
+  String toAddress(NetworkType networkType, {Uint8List? h160}) {
     final bytes = hexToBytes(publicHex);
     Uint8List ripemd160Hash = hash160(bytes);
     return super.toAddress(networkType, h160: ripemd160Hash);

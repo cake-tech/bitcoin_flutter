@@ -60,7 +60,7 @@ abstract class SegwitAddress implements BitcoinAddress {
 
   /// returns the address's string encoding (Bech32)
   @override
-  String toAddress(NetworkInfo networkType) {
+  String toAddress(NetworkType networkType) {
     final bytes = hexToBytes(_program);
     String? sw;
     try {
@@ -106,7 +106,7 @@ class P2trAddress extends SegwitAddress {
 
   /// returns the address's string encoding (Bech32m different from Bech32)
   @override
-  String toAddress(NetworkInfo networkType) {
+  String toAddress(NetworkType networkType) {
     final bytes = hexToBytes(_program);
     String? sw;
     try {

@@ -4,25 +4,56 @@ import '../formatting/bytes_num_formatting.dart';
 
 enum BtcNetwork { mainnet, testnet }
 
-class NetworkInfo {
+class Bip32Type {
+  final int public;
+  final int private;
+
+  const Bip32Type({required this.public, required this.private});
+
+  @override
+  String toString() {
+    return 'Bip32Type{public: $public, private: $private}';
+  }
+}
+
+class NetworkType {
   final String messagePrefix;
   final String bech32;
+  final Bip32Type bip32;
+  final int pubKeyHash;
+  final int scriptHash;
+  final int wif;
   final int p2pkhPrefix;
   final int p2shPrefix;
-  final int wif;
   final BtcNetwork network;
   final Map<AddressType, String> extendPrivate;
   final Map<AddressType, String> extendPublic;
   bool get isMainnet => network == BtcNetwork.mainnet;
 
-  /// ignore: constant_identifier_names
-  static const BITCOIN = NetworkInfo(
-      network: BtcNetwork.mainnet,
+  const NetworkType(
+      {required this.messagePrefix,
+      String? bech32,
+      required this.bip32,
+      required this.pubKeyHash,
+      required this.scriptHash,
+      required this.wif,
+      required this.p2pkhPrefix,
+      required this.p2shPrefix,
+      required this.extendPrivate,
+      required this.extendPublic,
+      required this.network})
+      : this.bech32 = bech32 ?? '';
+
+  static const BITCOIN = NetworkType(
       messagePrefix: '\x18Bitcoin Signed Message:\n',
       bech32: 'bc',
+      bip32: const Bip32Type(public: 0x0488b21e, private: 0x0488ade4),
+      pubKeyHash: 0x00,
+      scriptHash: 0x05,
+      wif: 0x80,
+      network: BtcNetwork.mainnet,
       p2pkhPrefix: 0x00,
       p2shPrefix: 0x05,
-      wif: 0x80,
       extendPrivate: {
         AddressType.p2pkh: "0x0488ade4",
         AddressType.p2pkhInP2sh: "0x0488ade4",
@@ -40,14 +71,16 @@ class NetworkInfo {
         AddressType.p2wshInP2sh: "0x0295b43f"
       });
 
-  /// ignore: constant_identifier_names
-  static const TESTNET = NetworkInfo(
-      network: BtcNetwork.testnet,
+  static const TESTNET = NetworkType(
       messagePrefix: '\x18Bitcoin Signed Message:\n',
       bech32: 'tb',
+      bip32: const Bip32Type(public: 0x043587cf, private: 0x04358394),
+      pubKeyHash: 0x6f,
+      scriptHash: 0xc4,
+      wif: 0xef,
+      network: BtcNetwork.testnet,
       p2pkhPrefix: 0x6f,
       p2shPrefix: 0xc4,
-      wif: 0xef,
       extendPrivate: {
         AddressType.p2pkh: "0x04358394",
         AddressType.p2pkhInP2sh: "0x04358394",
@@ -64,7 +97,8 @@ class NetworkInfo {
         AddressType.p2wsh: "0x02575483",
         AddressType.p2wshInP2sh: "0x024289ef"
       });
-  static NetworkInfo networkFromWif(String wif) {
+
+  static NetworkType networkFromWif(String wif) {
     final w = int.parse(wif, radix: 16);
     if (TESTNET.wif == w) {
       return TESTNET;
@@ -96,64 +130,11 @@ class NetworkInfo {
     return null;
   }
 
-  const NetworkInfo(
-      {required this.messagePrefix,
-      required this.bech32,
-      required this.p2pkhPrefix,
-      required this.p2shPrefix,
-      required this.wif,
-      required this.extendPrivate,
-      required this.extendPublic,
-      required this.network});
-}
-
-class NetworkType {
-  String messagePrefix;
-  String bech32;
-  Bip32Type bip32;
-  int pubKeyHash;
-  int scriptHash;
-  int wif;
-
-  NetworkType(
-      {required this.messagePrefix,
-      String? bech32,
-      required this.bip32,
-      required this.pubKeyHash,
-      required this.scriptHash,
-      required this.wif})
-      : this.bech32 = bech32 ?? '';
-
   @override
   String toString() {
     return 'NetworkType{messagePrefix: $messagePrefix, bech32: $bech32, bip32: ${bip32.toString()}, pubKeyHash: $pubKeyHash, scriptHash: $scriptHash, wif: $wif}';
   }
 }
 
-class Bip32Type {
-  int public;
-  int private;
-
-  Bip32Type({required this.public, required this.private});
-
-  @override
-  String toString() {
-    return 'Bip32Type{public: $public, private: $private}';
-  }
-}
-
-final bitcoin = new NetworkType(
-    messagePrefix: '\x18Bitcoin Signed Message:\n',
-    bech32: 'bc',
-    bip32: new Bip32Type(public: 0x0488b21e, private: 0x0488ade4),
-    pubKeyHash: 0x00,
-    scriptHash: 0x05,
-    wif: 0x80);
-
-final testnet = new NetworkType(
-    messagePrefix: '\x18Bitcoin Signed Message:\n',
-    bech32: 'tb',
-    bip32: new Bip32Type(public: 0x043587cf, private: 0x04358394),
-    pubKeyHash: 0x6f,
-    scriptHash: 0xc4,
-    wif: 0xef);
+final bitcoin = NetworkType.BITCOIN;
+final testnet = NetworkType.TESTNET;
