@@ -4,7 +4,6 @@ import 'package:pointycastle/api.dart' show KeyParameter;
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/digests/ripemd160.dart';
 import 'package:pointycastle/digests/sha256.dart';
-import 'package:crypto/crypto.dart' show sha256, Digest;
 
 Uint8List hash160(Uint8List buffer) {
   Uint8List _tmp = new SHA256Digest().process(buffer);
@@ -19,16 +18,6 @@ Uint8List hmacSHA512(Uint8List key, Uint8List data) {
 Uint8List hash256(Uint8List buffer) {
   Uint8List _tmp = new SHA256Digest().process(buffer);
   return new SHA256Digest().process(_tmp);
-}
-
-/// Function: doubleHash
-/// Description: Computes a double SHA-256 hash of the input data.
-/// Input: Uint8List buffer - The data to be hashed.
-/// Output: Uint8List - The resulting double SHA-256 hash.
-/// Note: Double hashing is a common cryptographic technique used to enhance data security.
-Uint8List doubleHash(Uint8List buffer) {
-  Digest tmp = sha256.convert(buffer);
-  return Uint8List.fromList(sha256.convert(tmp.bytes).bytes);
 }
 
 /// Function: singleHash
