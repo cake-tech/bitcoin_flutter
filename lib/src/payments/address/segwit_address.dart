@@ -85,7 +85,7 @@ abstract class SegwitAddress implements BitcoinAddress {
 }
 
 class P2wpkhAddress extends SegwitAddress {
-  static get REGEX => RegExp(r'^(bc|tb)1[ac-hj-np-z02-9]{25,39}$');
+  static RegExp get REGEX => RegExp(r'^(bc|tb)1[ac-hj-np-z02-9]{25,39}$');
 
   /// Encapsulates a P2WPKH address.
   P2wpkhAddress(
@@ -104,7 +104,7 @@ class P2wpkhAddress extends SegwitAddress {
 }
 
 class P2trAddress extends SegwitAddress {
-  static get REGEX =>
+  static RegExp get REGEX =>
       RegExp(r'^(bc)|(tb)1p([ac-hj-np-z02-9]{39}|[ac-hj-np-z02-9]{59})|1[ac-hj-np-z02-9]{8,89}$');
 
   /// Encapsulates a P2TR (Taproot) address.

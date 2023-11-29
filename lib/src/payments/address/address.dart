@@ -74,7 +74,7 @@ abstract class BipAddress implements BitcoinAddress {
 }
 
 class P2shAddress extends BipAddress {
-  static get REGEX => RegExp(r'^[23][a-km-zA-HJ-NP-Z1-9]{25,34}$');
+  static RegExp get REGEX => RegExp(r'^[23][a-km-zA-HJ-NP-Z1-9]{25,34}$');
 
   /// Encapsulates a P2SH address.
   P2shAddress({super.address, super.hash160, super.script, super.network})
@@ -96,7 +96,7 @@ class P2shAddress extends BipAddress {
 }
 
 class P2pkhAddress extends BipAddress {
-  static get REGEX => RegExp(r'^[1mn][a-km-zA-HJ-NP-Z1-9]{25,34}$');
+  static RegExp get REGEX => RegExp(r'^[1mn][a-km-zA-HJ-NP-Z1-9]{25,34}$');
 
   P2pkhAddress({super.address, super.hash160, super.network});
 
