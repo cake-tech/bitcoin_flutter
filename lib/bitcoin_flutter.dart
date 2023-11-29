@@ -15,6 +15,7 @@ export 'src/payments/p2pkh.dart';
 export 'src/payments/p2wpkh.dart';
 export 'src/payments/index.dart';
 export 'src/payments/scanning.dart';
+export 'src/payments/address/core.dart' show AddressType;
 export 'src/payments/address/segwit_address.dart' show P2trAddress;
 export 'src/payments/script/script.dart';
 export 'src/templates/silentpaymentaddress.dart';
