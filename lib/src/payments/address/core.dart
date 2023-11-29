@@ -23,16 +23,16 @@ enum AddressType {
     String label = '';
     switch (this) {
       case AddressType.p2pkh:
-        label = 'Legacy (1...)';
+        label = 'Bitcoin Legacy';
         break;
       case AddressType.p2wpkh:
-        label = 'SegWit (bc1q...)';
+        label = 'Bitcoin SegWit';
         break;
       case AddressType.p2tr:
-        label = 'Taproot (bc1p...)';
+        label = 'Bitcoin Taproot';
         break;
       case AddressType.p2sp:
-        label = 'Silent Payments (sp1p...)';
+        label = 'Bitcoin Silent Payments';
         break;
       default:
         label = 'Mainnet';
