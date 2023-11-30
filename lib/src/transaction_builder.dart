@@ -1,10 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:bitcoin_flutter/src/utils/constants/op.dart';
-import 'package:meta/meta.dart';
 import 'package:hex/hex.dart';
-import 'package:bs58check/bs58check.dart' as bs58check;
-import 'package:bech32/bech32.dart';
 import 'utils/script.dart' as bscript;
 import 'utils/uint8list.dart';
 import 'ecpair.dart' as ecpair;
@@ -16,6 +13,7 @@ import 'payments/p2pkh.dart';
 import 'payments/p2wpkh.dart';
 import 'classify.dart';
 import 'package:bitcoin_base/bitcoin.dart' as bitcoin_base;
+import 'ec/ec_public.dart';
 
 const int MAX_OP_RETURN_SIZE = 100;
 
@@ -209,32 +207,50 @@ class TransactionBuilder {
     }
     var signatureHash;
     if (input.prevOutType == SCRIPT_TYPES['P2TR']) {
-      var inputs2 = inputs!
-          .map((input) => bitcoin_base.TxInput(txId: input.hash, txIndex: input.vout))
-          .toList();
-      var outs2 = _tx.outs.map((txOut) {
-        return bitcoin_base.TxOutput(
-            amount: BigInt.from(txOut.value!),
-            scriptPubKey: bitcoin_base.Script.fromRaw(hexData: txOut.script!.hex, hasSegwit: true));
-      }).toList();
-      var tx = bitcoin_base.BtcTransaction(inputs: inputs2, outputs: outs2, hasSegwit: true);
+      List<bitcoin_base.TxInput> p2trInputs = [];
+      for (var i = 0; i < inputs!.length; i++) {
+        final p2trInput = inputs[i];
+        p2trInputs.add(bitcoin_base.TxInput(txId: p2trInput.hash, txIndex: p2trInput.vout));
+      }
+
+      List<bitcoin_base.TxOutput> p2trOutputs = [];
+      for (var i = 0; i < _tx.outs.length; i++) {
+        final p2trOutput = _tx.outs[i];
+        p2trOutputs.add(bitcoin_base.TxOutput(
+            amount: BigInt.from(p2trOutput.value!),
+            scriptPubKey:
+                bitcoin_base.Script.fromRaw(hexData: p2trOutput.script!.hex, hasSegwit: true)));
+      }
+
+      var tx =
+          bitcoin_base.BtcTransaction(inputs: p2trInputs, outputs: p2trOutputs, hasSegwit: true);
 
       const int signHash = TAPROOT_SIGHASH_ALL;
-      final txDigit = tx.getTransactionTaprootDigset(
-          txIndex: 0,
-          scriptPubKeys: [
-            bitcoin_base.Script.fromRaw(hexData: scriptPubKeys![vin].hex, hasSegwit: true)
-          ],
-          amounts: amounts!.map((e) => BigInt.from(e)).toList(),
-          sighash: signHash);
-      final signatur = keyPair.signTapRoot(txDigit,
-          scripts: [
-            bitcoin_base.Script(script: [keyPair.publicKey.sublist(0, 32).hex, 'OP_CHECKSIG'])
-          ],
-          sighash: signHash,
-          tweak: false);
-      tx.witnesses.add(bitcoin_base.TxWitnessInput(stack: [signatur.hex]));
+
+      for (var i = 0; i < _inputs.length; i++) {
+        final txDigit = tx.getTransactionTaprootDigset(
+            txIndex: i,
+            scriptPubKeys: scriptPubKeys!
+                .map((e) => bitcoin_base.Script.fromRaw(hexData: e.hex, hasSegwit: true))
+                .toList(),
+            amounts: amounts!.map((e) => BigInt.from(e)).toList(),
+            sighash: signHash);
+
+        final signatur = _inputs[i].keyPair!.signTapRoot(txDigit,
+            scripts: [
+              bitcoin_base.Script(script: [
+                ECPublic.fromHex(_inputs[i].keyPair!.publicKey.hex).toTapPoint(),
+                'OP_CHECKSIG'
+              ])
+            ],
+            sighash: signHash,
+            tweak: false);
+
+        tx.witnesses.add(bitcoin_base.TxWitnessInput(stack: [signatur.hex]));
+      }
+
       signatureHash = tx.serialize();
+      print("signatureHash: $signatureHash");
     } else if (input.hasWitness) {
       signatureHash = this._tx.hashForWitnessV0(vin, input.signScript!, input.value!, hashType);
     } else {
@@ -295,9 +311,7 @@ class TransactionBuilder {
           tx.setInputScript(i, payment.data.input!);
           tx.setWitness(i, payment.data.witness!);
         } else if (_inputs[i].prevOutType == SCRIPT_TYPES['P2TR']) {
-          // tx.setInputScript(i, Uint8List.fromList([]));
-          // tx.setWitness(i, [_inputs[i].signatures![i]!]);
-          tx.txHex = HEX.encode(_inputs[i].signatures![i]!);
+          tx.txHex = HEX.encode(_inputs[0].signatures![0]!);
         }
       } else if (!allowIncomplete) {
         throw new ArgumentError('Transaction is not complete');
@@ -406,6 +420,8 @@ class TransactionBuilder {
       input.prevOutScript = options.prevOutScript;
       input.prevOutType = classifyOutput(options.prevOutScript!);
     }
+    input.hash = hash;
+    input.index = vout;
     int vin = _tx.addInput(hash, vout, options.sequence, options.script);
     _inputs.add(input);
     _prevTxSet[prevTxOut] = true;

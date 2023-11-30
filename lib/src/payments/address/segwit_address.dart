@@ -5,6 +5,9 @@ import '../../models/networks.dart';
 import 'core.dart';
 import '../constants/constants.dart';
 import '../script/script.dart';
+import '../../utils/string.dart';
+import '../../utils/uint8list.dart';
+import '../../ec/ec_public.dart';
 import 'package:bech32/bech32.dart';
 
 abstract class SegwitAddress implements BitcoinAddress {
@@ -33,6 +36,8 @@ abstract class SegwitAddress implements BitcoinAddress {
       _program = _addressToHash(address, network: network);
     } else if (script != null) {
       _program = _scriptToHash(script);
+    } else if (pubkey != null) {
+      _program = hash160(pubkey.fromHex).hex;
     }
   }
 
@@ -85,12 +90,11 @@ abstract class SegwitAddress implements BitcoinAddress {
 }
 
 class P2wpkhAddress extends SegwitAddress {
-  static RegExp get REGEX => RegExp(r'^(bc|tb)1[ac-hj-np-z02-9]{25,39}$');
+  static RegExp get REGEX => RegExp(r'^(bc|tb)1q[ac-hj-np-z02-9]{25,39}$');
 
   /// Encapsulates a P2WPKH address.
-  P2wpkhAddress(
-      {super.address, super.program, super.version = P2WPKH_ADDRESS_V0, NetworkType? network})
-      : super(network: network);
+  P2wpkhAddress({super.address, super.program, super.pubkey, super.network})
+      : super(version: P2WPKH_ADDRESS_V0);
 
   /// returns the scriptPubKey of a P2WPKH witness script
   @override
@@ -105,15 +109,13 @@ class P2wpkhAddress extends SegwitAddress {
 
 class P2trAddress extends SegwitAddress {
   static RegExp get REGEX =>
-      RegExp(r'^(bc)|(tb)1p([ac-hj-np-z02-9]{39}|[ac-hj-np-z02-9]{59})|1[ac-hj-np-z02-9]{8,89}$');
+      RegExp(r'^(bc)|(tb)1p([ac-hj-np-z02-9]{39}|[ac-hj-np-z02-9]{59})|1p[ac-hj-np-z02-9]{8,89}$');
 
   /// Encapsulates a P2TR (Taproot) address.
-  P2trAddress({
-    super.program,
-    super.address,
-    String? pubkey,
-    NetworkType? network,
-  }) : super(version: P2TR_ADDRESS_V1, pubkey: pubkey, network: network);
+  P2trAddress({String? program, super.address, String? pubkey, super.network})
+      : super(
+            version: P2TR_ADDRESS_V1,
+            program: program ?? (pubkey != null ? ECPublic.fromHex(pubkey).toTapPoint() : null));
 
   /// returns the address's string encoding (Bech32m different from Bech32)
   @override
