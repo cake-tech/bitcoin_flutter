@@ -111,7 +111,7 @@ class SilentPaymentDestination extends SilentPaymentAddress {
 }
 
 class SilentPaymentAddress {
-  static RegExp get REGEX => RegExp(r'^t?sp1[0-9a-zA-Z]{113}\$');
+  static RegExp get REGEX => RegExp(r'^t?sp1[0-9a-zA-Z]{113}$');
 
   int version;
   PublicKey scanPubkey;
