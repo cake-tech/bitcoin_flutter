@@ -4,7 +4,6 @@ import 'package:bitcoin_flutter/src/templates/outpoint.dart';
 import 'package:bitcoin_flutter/src/utils/int.dart';
 import 'package:bitcoin_flutter/src/utils/keys.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
-import 'package:bitcoin_flutter/src/formatting/bytes_num_formatting.dart';
 import 'package:crypto/crypto.dart';
 import 'package:bitcoin_flutter/src/templates/silentpaymentaddress.dart';
 import 'package:bitcoin_flutter/src/utils/uint8list.dart';
