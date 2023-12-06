@@ -137,9 +137,9 @@ main() {
 
         var expectedDestinations = receivingTest['expected']['outputs'];
 
-        var i = 0;
         // Check that the private key is correct for the found output public key
-        for (final output in addToWallet.entries) {
+        for (int i = 0; i < expectedDestinations.length; i++) {
+          final output = addToWallet.entries.elementAt(i);
           final pubkey = output.key;
           final expectedPubkey = expectedDestinations[i]["pub_key"];
           expect(pubkey, expectedPubkey);

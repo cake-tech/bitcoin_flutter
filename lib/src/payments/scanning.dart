@@ -30,7 +30,7 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
         .fromHex;
 
     // - Compute P_k = B_spend + t_k·G
-    final P_k = B_spend.tweakAdd(t_k.bigint).toCompressedHex().fromHex;
+    final P_k = PublicKey.fromPoint(curve, B_spend).tweakAdd(t_k.bigint).toCompressedHex().fromHex;
     final length = outputPubKeys.length;
 
     // - For each output in outputPubKeys
@@ -55,7 +55,8 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
         // - Compute m·G = output - Pk
         // m·G = output + (-P_k)
         final negatedP_k = PublicKey.fromBytes(curve, P_k).negate();
-        var m_G_sub = PublicKey.fromPoint(curve, curve.add(outputPubkey, negatedP_k))
+        var m_G_sub = PublicKey.fromPoint(curve, outputPubkey)
+            .pubkeyAdd(negatedP_k)
             .toCompressedHex()
             .fromHex;
 
@@ -65,7 +66,8 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
         // - If the label is not found, negate output and check again
         if (m_G == null) {
           outputPubkey.negate();
-          m_G_sub = PublicKey.fromPoint(curve, curve.add(outputPubkey, negatedP_k))
+          m_G_sub = PublicKey.fromPoint(curve, outputPubkey)
+              .pubkeyAdd(negatedP_k)
               .toCompressedHex()
               .fromHex;
 
