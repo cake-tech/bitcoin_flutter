@@ -92,6 +92,29 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
           outputPubKeys.removeAt(i);
           k++; // Increment counter
           break;
+        } else {
+          final found = labels.values.any((tweak) {
+            final B_m = PublicKey.fromPoint(curve, B_spend).tweakAdd(tweak.fromHex.bigint);
+            final P_km =
+                PublicKey.fromPoint(curve, B_m).tweakAdd(t_k.bigint).toCompressedHex().fromHex;
+
+            if (output.sublist(1) != P_km.sublist(1)
+                ? output.hex == P_km.sublist(1).hex
+                : output.sublist(1).hex == P_km.sublist(1).hex) {
+              // - Add P_km to the wallet
+              matches[output.hex] = PrivateKey.fromBytes(curve, t_k)
+                  .tweakAdd(tweak.fromHex.bigint)!
+                  .toCompressedHex();
+              outputPubKeys.removeAt(i);
+              k++; // Increment counter
+              return true;
+            }
+            return false;
+          });
+
+          if (found) {
+            break;
+          }
         }
       }
 
