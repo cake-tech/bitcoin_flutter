@@ -3,7 +3,6 @@ import 'package:bitcoin_flutter/src/utils/int.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:crypto/crypto.dart';
-import 'package:bitcoin_flutter/src/formatting/bytes_num_formatting.dart';
 import '../utils/uint8list.dart';
 
 // https://github.com/bitcoin/bips/blob/c55f80c53c98642357712c1839cfdc0551d531c4/bip-0352.mediawiki#scanning
@@ -50,7 +49,7 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
       }
 
       // - Else, if the wallet has precomputed labels (including the change label, if used)
-      if (labels != null) {
+      if (labels != null && labels.isNotEmpty) {
         final outputPubkey = PublicKey.fromBytes(curve, output);
 
         // - Compute m·G = output - Pk
