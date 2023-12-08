@@ -3,6 +3,10 @@ import 'dart:math';
 import 'package:bip32/src/utils/ecurve.dart' as ecc;
 import 'package:bip32/src/utils/wif.dart' as wif;
 import 'models/networks.dart';
+import 'ec/ec_public.dart';
+import 'ec/ec_encryption.dart' as ec;
+import 'crypto.dart' as bcrypto;
+import 'transaction.dart';
 
 class ECPair {
   Uint8List? _d;
@@ -10,8 +14,8 @@ class ECPair {
   NetworkType network;
   bool compressed;
   ECPair(Uint8List? _d, Uint8List? _Q, {NetworkType? network, bool? compressed})
-  : this.network = network ?? bitcoin,
-    this.compressed = compressed ?? true {
+      : this.network = network ?? bitcoin,
+        this.compressed = compressed ?? true {
     this._d = _d;
     this._Q = _Q;
   }
@@ -25,8 +29,8 @@ class ECPair {
     if (privateKey == null) {
       throw new ArgumentError('Missing private key');
     }
-    return wif.encode(new wif.WIF(
-        version: network.wif, privateKey: privateKey!, compressed: compressed));
+    return wif
+        .encode(new wif.WIF(version: network.wif, privateKey: privateKey!, compressed: compressed));
   }
 
   Uint8List sign(Uint8List hash) {
@@ -54,29 +58,21 @@ class ECPair {
         throw new ArgumentError('Unknown network version');
       }
     }
-    return ECPair.fromPrivateKey(decoded.privateKey,
-        compressed: decoded.compressed, network: nw);
+    return ECPair.fromPrivateKey(decoded.privateKey, compressed: decoded.compressed, network: nw);
   }
-  factory ECPair.fromPublicKey(Uint8List publicKey,
-      {NetworkType? network, bool? compressed}) {
+  factory ECPair.fromPublicKey(Uint8List publicKey, {NetworkType? network, bool? compressed}) {
     if (!ecc.isPoint(publicKey)) {
       throw new ArgumentError('Point is not on the curve');
     }
-    return new ECPair(null, publicKey,
-        network: network, compressed: compressed);
+    return new ECPair(null, publicKey, network: network, compressed: compressed);
   }
-  factory ECPair.fromPrivateKey(Uint8List privateKey,
-      {NetworkType? network, bool? compressed}) {
+  factory ECPair.fromPrivateKey(Uint8List privateKey, {NetworkType? network, bool? compressed}) {
     if (privateKey.length != 32)
-      throw new ArgumentError(
-          'Expected property privateKey of type Buffer(Length: 32)');
-    if (!ecc.isPrivate(privateKey))
-      throw new ArgumentError('Private key not in range [1, n)');
-    return new ECPair(privateKey, null,
-        network: network, compressed: compressed);
+      throw new ArgumentError('Expected property privateKey of type Buffer(Length: 32)');
+    if (!ecc.isPrivate(privateKey)) throw new ArgumentError('Private key not in range [1, n)');
+    return new ECPair(privateKey, null, network: network, compressed: compressed);
   }
-  factory ECPair.makeRandom(
-      {NetworkType? network, bool? compressed, Function? rng}) {
+  factory ECPair.makeRandom({NetworkType? network, bool? compressed, Function? rng}) {
     final rfunc = rng ?? _randomBytes;
     Uint8List d;
 //    int beginTime = DateTime.now().millisecondsSinceEpoch;
@@ -86,6 +82,25 @@ class ECPair {
 //      if (DateTime.now().millisecondsSinceEpoch - beginTime > 5000) throw ArgumentError('Timeout');
     } while (!ecc.isPrivate(d));
     return ECPair.fromPrivateKey(d, network: network, compressed: compressed);
+  }
+
+  /// sign taproot transaction digest and returns the signature.
+  Uint8List signTapRoot(Uint8List txDigest,
+      {int sighash = TAPROOT_SIGHASH_ALL, List<dynamic> scripts = const [], bool tweak = true}) {
+    Uint8List byteKey = Uint8List(0);
+    if (tweak) {
+      final ECPublic publicKey = ECPublic.fromBytes(_Q!);
+      final t = publicKey.calculateTweek(script: scripts);
+      byteKey = ec.tweekTapprotPrivate(_d!, t);
+    } else {
+      byteKey = _d!;
+    }
+    final randAux = bcrypto.singleHash(Uint8List.fromList([...txDigest, ...byteKey]));
+    Uint8List signatur = ec.schnorrSign(txDigest, byteKey, randAux);
+    if (sighash != TAPROOT_SIGHASH_ALL) {
+      signatur = Uint8List.fromList([...signatur, sighash]);
+    }
+    return signatur;
   }
 }
 

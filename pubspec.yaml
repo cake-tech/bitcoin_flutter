@@ -5,7 +5,7 @@ homepage: https://github.com/anicdh
 publish_to: none
 
 environment:
-  sdk: ">=2.12.0 <3.0.0"
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   bip39: ^1.0.6
@@ -15,8 +15,13 @@ dependencies:
   bs58check: ^1.0.2
   bech32:
     git:
-      url: https://github.com/cake-tech/bech32.git
-      ref: cake-0.2.2
+      url: https://github.com/saltrafael/bech32.git
+      ref: bech32m
+  elliptic:
+    git:
+      url: https://github.com/cake-tech/dart-elliptic
+      ref: silent-payments
+  bitcoin_base: ^0.5.0
 
 dev_dependencies:
   test: ^1.24.9

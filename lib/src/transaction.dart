@@ -1,19 +1,27 @@
 import 'dart:typed_data';
+// import 'package:bitcoin_base/bitcoin_base.dart';
+import 'package:bitcoin_flutter/src/formatting/bytes_tracker.dart';
 import 'package:hex/hex.dart';
+// import 'package:pointycastle/impl.dart';
 import 'payments/index.dart' show PaymentData;
 import 'payments/p2pkh.dart' show P2PKH;
 import 'payments/p2pk.dart' show P2PK;
-import 'payments/p2wpkh.dart' show P2WPKH;
+import 'payments/p2wpkh.dart' show P2WPKH, P2TR;
 import 'crypto.dart' as bcrypto;
 import 'classify.dart';
 import 'utils/check_types.dart';
 import 'utils/script.dart' as bscript;
+import 'ecpair.dart' as ecpair;
 import 'utils/constants/op.dart';
 import 'utils/varuint.dart' as varuint;
+import 'utils/uint8list.dart';
 import 'package:collection/collection.dart';
+import 'formatting/bytes_num_formatting.dart';
 
+const LEAF_VERSION_TAPSCRIPT = 0xc0;
 const DEFAULT_SEQUENCE = 0xffffffff;
 const SIGHASH_ALL = 0x01;
+const TAPROOT_SIGHASH_ALL = 0x00;
 const SIGHASH_NONE = 0x02;
 const SIGHASH_SINGLE = 0x03;
 const SIGHASH_ANYONECANPAY = 0x80;
@@ -21,20 +29,19 @@ const ADVANCED_TRANSACTION_MARKER = 0x00;
 const ADVANCED_TRANSACTION_FLAG = 0x01;
 final EMPTY_SCRIPT = Uint8List.fromList([]);
 final EMPTY_WITNESS = <Uint8List>[];
-final ZERO = HEX
-    .decode('0000000000000000000000000000000000000000000000000000000000000000');
-final ONE = HEX
-    .decode('0000000000000000000000000000000000000000000000000000000000000001');
+final ZERO = HEX.decode('0000000000000000000000000000000000000000000000000000000000000000');
+final ONE = HEX.decode('0000000000000000000000000000000000000000000000000000000000000001');
 final VALUE_UINT64_MAX = HEX.decode('ffffffffffffffff');
 final BLANK_OUTPUT =
     new Output(script: EMPTY_SCRIPT, valueBuffer: Uint8List.fromList(VALUE_UINT64_MAX));
 
 class Transaction {
   int version = 1;
+  String? txHex;
   int locktime = 0;
   List<Input> ins = [];
   List<Output> outs = [];
-  Transaction();
+  Transaction({int? version}) : this.version = version ?? 1;
 
   int addInput(Uint8List hash, int index, [int? sequence, Uint8List? scriptSig]) {
     ins.add(new Input(
@@ -52,8 +59,8 @@ class Transaction {
   }
 
   bool hasWitnesses() {
-    var witness = ins.firstWhereOrNull(
-        (input) => input.witness != null && input.witness!.length != 0);
+    var witness =
+        ins.firstWhereOrNull((input) => input.witness != null && input.witness!.length != 0);
     return witness != null;
   }
 
@@ -65,8 +72,7 @@ class Transaction {
     ins[index].witness = witness;
   }
 
-  hashForWitnessV0(
-      int inIndex, Uint8List prevOutScript, int value, int hashType) {
+  hashForWitnessV0(int inIndex, Uint8List prevOutScript, int value, int hashType) {
     var tbuffer = Uint8List.fromList([]);
     var toffset = 0;
     // Any changes made to the ByteData will also change the buffer, and vice versa.
@@ -142,10 +148,8 @@ class Transaction {
       hashSequence = bcrypto.hash256(tbuffer);
     }
 
-    if ((hashType & 0x1f) != SIGHASH_SINGLE &&
-        (hashType & 0x1f) != SIGHASH_NONE) {
-      var txOutsSize =
-          outs.fold<int>(0, (sum, output) => sum + 8 + varSliceSize(output.script!));
+    if ((hashType & 0x1f) != SIGHASH_SINGLE && (hashType & 0x1f) != SIGHASH_NONE) {
+      var txOutsSize = outs.fold<int>(0, (sum, output) => sum + 8 + varSliceSize(output.script!));
       tbuffer = new Uint8List(txOutsSize);
       bytes = tbuffer.buffer.asByteData();
       toffset = 0;
@@ -184,11 +188,121 @@ class Transaction {
     return bcrypto.hash256(tbuffer);
   }
 
+  hashForWitnessV1(int txIndex, Uint8List prevOutScript, int value, int hashType, List<int> amounts,
+      List<Uint8List> scriptPubKeys,
+      {int sighash = TAPROOT_SIGHASH_ALL}) {
+    bool sighashNone = (sighash & 0x03) == SIGHASH_NONE;
+    bool sighashSingle = (sighash & 0x03) == SIGHASH_SINGLE;
+    bool anyoneCanPay = (sighash & 0x80) == SIGHASH_ANYONECANPAY;
+    DynamicByteTracker txForSign = DynamicByteTracker();
+    txForSign.add([0]);
+    txForSign.add(Uint16List.fromList([sighash]));
+    txForSign.add([0x02, 0x00, 0x00, 0x00]);
+    txForSign.add([0x00, 0x00, 0x00, 0x00]);
+    Uint8List hashPrevouts = Uint8List(0);
+    Uint8List hashAmounts = Uint8List(0);
+    Uint8List hashScriptPubkeys = Uint8List(0);
+    Uint8List hashSequences = Uint8List(0);
+    Uint8List hashOutputs = Uint8List(0);
+    if (!anyoneCanPay) {
+      for (final txin in ins) {
+        Uint8List txidBytes = Uint8List.fromList(txin.hash!);
+
+        Uint8List txoutIndexBytes = packUint32LE(txin.index!);
+        hashPrevouts = Uint8List.fromList([...hashPrevouts, ...txidBytes, ...txoutIndexBytes]);
+
+        final h = txin.script!.hex;
+
+        /// must checked
+        int scriptLen = h.length ~/ 2;
+        Uint8List scriptBytes = hexToBytes(h);
+        Uint8List lenBytes = Uint8List.fromList([scriptLen]);
+        hashScriptPubkeys = Uint8List.fromList([...hashScriptPubkeys, ...lenBytes, ...scriptBytes]);
+
+        hashSequences = Uint8List.fromList([
+          ...hashSequences,
+          ...[0x00, 0x00, 0x00, 0x00]
+        ]);
+      }
+      hashPrevouts = bcrypto.singleHash(hashPrevouts);
+      txForSign.add(hashPrevouts);
+
+      for (final i in amounts) {
+        Uint8List bytes = packBigIntToLittleEndian(BigInt.from(i));
+        hashAmounts = Uint8List.fromList([...hashAmounts, ...bytes]);
+      }
+      txForSign.add(hashAmounts);
+
+      for (final s in scriptPubKeys) {
+        final h = s.hex;
+
+        /// must checked
+        int scriptLen = h.length ~/ 2;
+        Uint8List scriptBytes = hexToBytes(h);
+        Uint8List lenBytes = Uint8List.fromList([scriptLen]);
+        hashScriptPubkeys = Uint8List.fromList([...hashScriptPubkeys, ...lenBytes, ...scriptBytes]);
+      }
+      hashScriptPubkeys = bcrypto.singleHash(hashScriptPubkeys);
+      txForSign.add(hashScriptPubkeys);
+
+      hashSequences = bcrypto.singleHash(hashSequences);
+      txForSign.add(hashSequences);
+    }
+
+    if (!(sighashNone || sighashSingle)) {
+      for (final txOut in outs) {
+        Uint8List packedAmount = packBigIntToLittleEndian(BigInt.from(txOut.value!));
+        Uint8List scriptBytes = txOut.script!;
+        final lenScriptBytes = Uint8List.fromList([scriptBytes.length]);
+        hashOutputs = Uint8List.fromList(
+            [...hashOutputs, ...packedAmount, ...lenScriptBytes, ...scriptBytes]);
+      }
+      hashOutputs = bcrypto.singleHash(hashOutputs);
+      txForSign.add(hashOutputs);
+    }
+
+    final extFlags = 0;
+    final int spendType = extFlags * 2 + 0;
+    txForSign.add(Uint8List.fromList([spendType]));
+
+    int index = txIndex;
+    ByteData byteData = ByteData(4);
+    for (int i = 0; i < 4; i++) {
+      byteData.setUint8(i, index & 0xFF);
+      index >>= 8;
+    }
+    Uint8List bytes = byteData.buffer.asUint8List();
+    txForSign.add(bytes);
+
+    if (sighashSingle) {
+      final txOut = outs[txIndex];
+
+      Uint8List packedAmount = packBigIntToLittleEndian(BigInt.from(txOut.value!));
+      final sBytes = txOut.script!;
+      Uint8List lenScriptBytes = Uint8List.fromList([sBytes.length]);
+
+      final hashOut = Uint8List.fromList([...packedAmount, ...lenScriptBytes, ...sBytes]);
+      txForSign.add(bcrypto.singleHash(hashOut));
+    }
+    if (extFlags == 1) {
+      final leafVar = LEAF_VERSION_TAPSCRIPT;
+      final leafVarBytes = Uint8List.fromList([
+        ...Uint8List.fromList([leafVar]),
+        ...prependVarint(prevOutScript)
+      ]);
+      txForSign.add(bcrypto.taggedHash(leafVarBytes, "TapLeaf"));
+      txForSign.add(Uint16List.fromList([0]));
+      txForSign.add(Uint8List.fromList([0xFF, 0xFF, 0xFF, 0xFF]));
+    }
+    final signBytes = txForSign.toBytes();
+    txForSign.close();
+    return bcrypto.taggedHash(signBytes, "TapSighash");
+  }
+
   hashForSignature(int inIndex, Uint8List prevOutScript, int hashType) {
     if (inIndex >= ins.length) return ONE;
     // ignore OP_CODESEPARATOR
-    final ourScript =
-        bscript.compile(bscript.decompile(prevOutScript)!.where((x) {
+    final ourScript = bscript.compile(bscript.decompile(prevOutScript)!.where((x) {
       return x != OPS['OP_CODESEPARATOR'];
     }).toList());
     final txTmp = Transaction.clone(this);
@@ -236,9 +350,7 @@ class Transaction {
     }
     // serialize and hash
     final buffer = Uint8List(txTmp.virtualSize() + 4);
-    buffer.buffer
-        .asByteData()
-        .setUint32(buffer.length - 4, hashType, Endian.little);
+    buffer.buffer.asByteData().setUint32(buffer.length - 4, hashType, Endian.little);
     txTmp._toBuffer(buffer, 0);
     return bcrypto.hash256(buffer);
   }
@@ -250,9 +362,7 @@ class Transaction {
         varuint.encodingLength(outs.length) +
         ins.fold(0, (sum, input) => sum + 40 + varSliceSize(input.script!)) +
         outs.fold(0, (sum, output) => sum + 8 + varSliceSize(output.script!)) +
-        (hasWitness
-            ? ins.fold(0, (sum, input) => sum + vectorSize(input.witness!))
-            : 0);
+        (hasWitness ? ins.fold(0, (sum, input) => sum + vectorSize(input.witness!)) : 0);
   }
 
   int vectorSize(List<Uint8List> someVector) {
@@ -475,8 +585,7 @@ class Transaction {
     final flag = readUInt8();
 
     var hasWitnesses = false;
-    if (marker == ADVANCED_TRANSACTION_MARKER &&
-        flag == ADVANCED_TRANSACTION_FLAG) {
+    if (marker == ADVANCED_TRANSACTION_MARKER && flag == ADVANCED_TRANSACTION_FLAG) {
       hasWitnesses = true;
     } else {
       offset -= 2; // Reset offset if not segwit tx
@@ -506,8 +615,7 @@ class Transaction {
 
     if (noStrict) return tx;
 
-    if (offset != buffer.length)
-      throw new ArgumentError('Transaction has unexpected data');
+    if (offset != buffer.length) throw new ArgumentError('Transaction has unexpected data');
 
     return tx;
   }
@@ -547,6 +655,7 @@ class Input {
   List<Uint8List?>? pubkeys;
   List<Uint8List?>? signatures;
   List<Uint8List>? witness;
+  ecpair.ECPair? keyPair;
 
   Input(
       {this.hash,
@@ -558,7 +667,8 @@ class Input {
       this.pubkeys,
       this.signatures,
       this.witness,
-      this.prevOutType})
+      this.prevOutType,
+      this.keyPair})
       : this.hasWitness = false {
     if (this.hash != null && !isHash256bit(this.hash!))
       throw new ArgumentError('Invalid input hash');
@@ -566,12 +676,11 @@ class Input {
       throw new ArgumentError('Invalid input index');
     if (this.sequence != null && !isUint(this.sequence!, 32))
       throw new ArgumentError('Invalid input sequence');
-    if (this.value != null && !isShatoshi(this.value!))
-      throw ArgumentError('Invalid ouput value');
+    if (this.value != null && !isShatoshi(this.value!)) throw ArgumentError('Invalid ouput value');
   }
 
   factory Input.expandInput(Uint8List scriptSig, List<Uint8List> witness,
-      [String? type, Uint8List? scriptPubKey]) {
+      [String? type, Uint8List? scriptPubKey, ecpair.ECPair? keyPair, int? value]) {
     if (type == null || type == '') {
       String? ssType = classifyInput(scriptSig);
       String? wsType = classifyWitness(witness);
@@ -585,20 +694,35 @@ class Input {
           prevOutScript: p2wpkh.data.output,
           prevOutType: SCRIPT_TYPES['P2WPKH']!,
           pubkeys: [p2wpkh.data.pubkey!],
-          signatures: [p2wpkh.data.signature!]);
+          signatures: [p2wpkh.data.signature!],
+          keyPair: keyPair,
+          value: value);
+    } else if (type == SCRIPT_TYPES['P2TR']) {
+      P2TR p2tr = new P2TR(data: new PaymentData(witness: witness));
+      return new Input(
+          prevOutScript: p2tr.data.output,
+          prevOutType: SCRIPT_TYPES['P2TR']!,
+          pubkeys: [p2tr.data.pubkey!],
+          signatures: [p2tr.data.signature!],
+          keyPair: keyPair,
+          value: value);
     } else if (type == SCRIPT_TYPES['P2PKH']) {
       P2PKH p2pkh = new P2PKH(data: new PaymentData(input: scriptSig));
       return new Input(
           prevOutScript: p2pkh.data.output,
           prevOutType: SCRIPT_TYPES['P2PKH']!,
           pubkeys: [p2pkh.data.pubkey!],
-          signatures: [p2pkh.data.signature!]);
+          signatures: [p2pkh.data.signature!],
+          keyPair: keyPair,
+          value: value);
     } else if (type == SCRIPT_TYPES['P2PK']) {
       P2PK p2pk = new P2PK(data: new PaymentData(input: scriptSig));
       return new Input(
           prevOutType: SCRIPT_TYPES['P2PK']!,
           pubkeys: [],
-          signatures: [p2pk.data.signature!]);
+          signatures: [p2pk.data.signature!],
+          keyPair: keyPair,
+          value: value);
     }
     throw Exception('Cannot to build Input with expandInput factory');
   }
@@ -610,17 +734,15 @@ class Input {
       script: input.script != null ? Uint8List.fromList(input.script!) : null,
       sequence: input.sequence,
       value: input.value,
-      prevOutScript: input.prevOutScript != null
-          ? Uint8List.fromList(input.prevOutScript!)
-          : null,
+      prevOutScript: input.prevOutScript != null ? Uint8List.fromList(input.prevOutScript!) : null,
       pubkeys: input.pubkeys != null
-          ? input.pubkeys!.map(
-              (pubkey) => pubkey != null ? Uint8List.fromList(pubkey) : null)
+          ? input.pubkeys!
+              .map((pubkey) => pubkey != null ? Uint8List.fromList(pubkey) : null)
               .toList()
           : null,
       signatures: input.signatures != null
-          ? input.signatures!.map((signature) =>
-              signature != null ? Uint8List.fromList(signature) : null)
+          ? input.signatures!
+              .map((signature) => signature != null ? Uint8List.fromList(signature) : null)
               .toList()
           : null,
     );
@@ -639,28 +761,25 @@ class Output {
   List<Uint8List?>? pubkeys;
   List<Uint8List?>? signatures;
 
-  Output(
-      {this.script,
-      this.value,
-      this.pubkeys,
-      this.signatures,
-      this.valueBuffer}) {
-    if (value != null && !isShatoshi(value!))
-      throw ArgumentError('Invalid ouput value');
+  Output({this.script, this.value, this.pubkeys, this.signatures, this.valueBuffer}) {
+    if (value != null && !isShatoshi(value!)) throw ArgumentError('Invalid ouput value');
   }
 
   factory Output.expandOutput(Uint8List script, [Uint8List? ourPubKey]) {
     if (ourPubKey == null) return new Output();
     var type = classifyOutput(script);
     if (type == SCRIPT_TYPES['P2WPKH']) {
-      Uint8List wpkh1 =
-          new P2WPKH(data: new PaymentData(output: script)).data.hash!;
+      Uint8List wpkh1 = new P2WPKH(data: new PaymentData(output: script)).data.hash!;
+      Uint8List wpkh2 = bcrypto.hash160(ourPubKey);
+      if (wpkh1 != wpkh2) throw ArgumentError('Hash mismatch!');
+      return new Output(pubkeys: [ourPubKey], signatures: [null]);
+    } else if (type == SCRIPT_TYPES['P2TR']) {
+      Uint8List wpkh1 = new P2TR(data: new PaymentData(output: script)).data.hash!;
       Uint8List wpkh2 = bcrypto.hash160(ourPubKey);
       if (wpkh1 != wpkh2) throw ArgumentError('Hash mismatch!');
       return new Output(pubkeys: [ourPubKey], signatures: [null]);
     } else if (type == SCRIPT_TYPES['P2PKH']) {
-      Uint8List pkh1 =
-          new P2PKH(data: new PaymentData(output: script)).data.hash!;
+      Uint8List pkh1 = new P2PKH(data: new PaymentData(output: script)).data.hash!;
       Uint8List pkh2 = bcrypto.hash160(ourPubKey);
       if (pkh1 != pkh2) throw ArgumentError('Hash mismatch!');
       return new Output(pubkeys: [ourPubKey], signatures: [null]);
@@ -672,17 +791,15 @@ class Output {
     return new Output(
       script: output.script != null ? Uint8List.fromList(output.script!) : null,
       value: output.value,
-      valueBuffer: output.valueBuffer != null
-          ? Uint8List.fromList(output.valueBuffer!)
-          : null,
+      valueBuffer: output.valueBuffer != null ? Uint8List.fromList(output.valueBuffer!) : null,
       pubkeys: output.pubkeys != null
-          ? output.pubkeys!.map(
-              (pubkey) => pubkey != null ? Uint8List.fromList(pubkey) : null)
+          ? output.pubkeys!
+              .map((pubkey) => pubkey != null ? Uint8List.fromList(pubkey) : null)
               .toList()
           : null,
       signatures: output.signatures != null
-          ? output.signatures!.map((signature) =>
-              signature != null ? Uint8List.fromList(signature) : null)
+          ? output.signatures!
+              .map((signature) => signature != null ? Uint8List.fromList(signature) : null)
               .toList()
           : null,
     );
