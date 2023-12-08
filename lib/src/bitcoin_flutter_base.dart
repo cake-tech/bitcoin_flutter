@@ -1,6 +1,7 @@
 // TODO: Put public facing types in this file.
 import 'dart:typed_data';
 import 'package:bitcoin_flutter/src/utils/magic_hash.dart';
+import 'package:bitcoin_flutter/src/utils/recoverable_signatures.dart';
 import 'package:hex/hex.dart';
 import 'package:bip32/bip32.dart' as bip32;
 import 'models/networks.dart';
@@ -110,6 +111,20 @@ class HDWallet {
     Uint8List messageHash = magicHash(message, null);
     return _bip32!.verify(messageHash, signature);
   }
+
+  Uint8List signMessage(String message) {
+    final messageHash = magicHash(message, network);
+    final rs = _bip32!.sign(messageHash) as Uint8List;
+    final rawSig = rs.toECSignature();
+    final recId = findRecoveryId(
+        getHexString(messageHash, offset: 0, length: messageHash.length),
+        rawSig,
+        _bip32!.publicKey);
+
+    final v = recId + 27 + (_bip32!.publicKey.isCompressedPoint() ? 4 : 0);
+
+    return Uint8List.fromList([v, ...rs]);
+  }
 }
 
 class Wallet {
@@ -152,5 +167,20 @@ class Wallet {
   bool verify({required String message, required Uint8List signature}) {
     Uint8List messageHash = magicHash(message, network);
     return _keyPair!.verify(messageHash, signature);
+  }
+
+
+  Uint8List signMessage(String message) {
+    final messageHash = magicHash(message, network);
+    final rs = _keyPair!.sign(messageHash);
+    final rawSig = rs.toECSignature();
+    final recId = findRecoveryId(
+        getHexString(messageHash, offset: 0, length: messageHash.length),
+        rawSig,
+        _keyPair!.publicKey);
+
+    final v = recId + 27 + (_keyPair!.publicKey.isCompressedPoint() ? 4 : 0);
+
+    return Uint8List.fromList([v, ...rs]);
   }
 }
