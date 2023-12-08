@@ -7,7 +7,10 @@ import '../utils/uint8list.dart';
 
 // https://github.com/bitcoin/bips/blob/c55f80c53c98642357712c1839cfdc0551d531c4/bip-0352.mediawiki#scanning
 // https://github.com/bitcoin-core-review-club/bips/blob/cfe0771a0408a2d2de278d4e95bb9a33bd1615b2/bip-0352/reference.py#L105
-Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey A_sum,
+
+// RETURNS: [{output: [tweak, label]}]
+// Maps the output pubkey to the tweak used for the shared secret, and the label used to derive the tweak if applicable
+Map<String, List<String>> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey A_sum,
     Uint8List outpointsHash, List<Uint8List> outputPubKeys,
     {Map<String, String>? labels}) {
   final curve = getSecp256k1();
@@ -17,7 +20,7 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
   final ecdhSharedSecret = tweakDataForRecipient!.tweakMul(b_scan.D);
 
   // P_k to priv key tweak matches
-  final matches = <String, String>{};
+  final matches = <String, List<String>>{};
 
   // - Starting with k = 0:
   var k = 0;
@@ -42,7 +45,7 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
           ? output.hex == P_k.sublist(1).hex
           : output.sublist(1).hex == P_k.sublist(1).hex) {
         // - Add P_k to the wallet
-        matches[output.hex] = t_k.hex;
+        matches[output.hex] = [t_k.hex];
         outputPubKeys.removeAt(i);
         k++; // Increment counter
         break;
@@ -86,8 +89,10 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
             P_km[0] = 0x02;
           }
 
-          matches[output.hex] =
-              PrivateKey.fromBytes(curve, t_k).tweakAdd(m_G.fromHex.bigint)!.toCompressedHex();
+          matches[output.hex] = [
+            PrivateKey.fromBytes(curve, t_k).tweakAdd(m_G.fromHex.bigint)!.toCompressedHex(),
+            m_G
+          ];
 
           outputPubKeys.removeAt(i);
           k++; // Increment counter
@@ -102,9 +107,10 @@ Map<String, String> scanOutputs(PrivateKey b_scan, PublicKey B_spend, PublicKey 
                 ? output.hex == P_km.sublist(1).hex
                 : output.sublist(1).hex == P_km.sublist(1).hex) {
               // - Add P_km to the wallet
-              matches[output.hex] = PrivateKey.fromBytes(curve, t_k)
-                  .tweakAdd(tweak.fromHex.bigint)!
-                  .toCompressedHex();
+              matches[output.hex] = [
+                PrivateKey.fromBytes(curve, t_k).tweakAdd(tweak.fromHex.bigint)!.toCompressedHex(),
+                tweak
+              ];
               outputPubKeys.removeAt(i);
               k++; // Increment counter
               return true;

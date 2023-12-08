@@ -144,7 +144,7 @@ main() {
           final expectedPubkey = expectedDestinations[i]["pub_key"];
           expect(pubkey, expectedPubkey);
 
-          final privKeyTweak = output.value;
+          final privKeyTweak = output.value[0];
           final expectedPrivKeyTweak = expectedDestinations[i]["priv_key_tweak"];
           expect(privKeyTweak, expectedPrivKeyTweak);
 
