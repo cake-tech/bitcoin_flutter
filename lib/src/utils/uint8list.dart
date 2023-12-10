@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'package:hex/hex.dart';
+import 'package:bitcoin_flutter/src/ec/ec_encryption.dart' as ec;
+import 'package:bitcoin_flutter/src/crypto.dart' as crypto;
 
 extension Uint8ListExt on Uint8List {
   int compare(Uint8List list2) {
@@ -41,6 +43,14 @@ extension Uint8ListExt on Uint8List {
     }
 
     return result;
+  }
+
+  bool get isPoint {
+    return ec.isPoint(this);
+  }
+
+  Uint8List get ripemd160Hash {
+    return crypto.hash160(this);
   }
 }
 

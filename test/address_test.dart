@@ -4,7 +4,7 @@ import 'package:bitcoin_flutter/src/utils/constants/derivation_paths.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:test/test.dart';
 import '../lib/src/address.dart' show Address;
-import '../lib/src/models/networks.dart' as NETWORKS;
+import 'package:bitcoin_flutter/src/models/networks.dart' as NETWORKS;
 import '../lib/src/utils/string.dart';
 import 'package:bip39/bip39.dart' as bip39;
 

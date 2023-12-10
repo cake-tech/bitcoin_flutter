@@ -13,8 +13,28 @@ enum ScriptType { P2PKH, P2SH, P2WPKH, P2WSH, P2PK }
 ///
 /// [script] the list with all the script OP_CODES and data
 class Script {
-  const Script({required this.script});
-  final List<dynamic> script;
+  Script({required List<dynamic> script}) {
+    if (script is List<String>) {
+      this.script = script;
+      return;
+    }
+
+    final List<String> parsedScript = [];
+
+    for (final token in script) {
+      if (token is OP_WORDS) {
+        parsedScript.add(token.name);
+      } else if (token is String) {
+        parsedScript.add(token);
+      } else {
+        throw ArgumentError("Invalid script");
+      }
+    }
+
+    this.script = parsedScript;
+  }
+
+  late final List<String> script;
 
   Uint8List toTapleafTaggedHash() {
     final leafVarBytes = Uint8List.fromList([
@@ -26,14 +46,17 @@ class Script {
 
   /// create p2psh script wit current script
   Script toP2shScriptPubKey() {
-    final address = P2shAddress(script: this);
-    return Script(script: ['OP_HASH160', address.getH160, 'OP_EQUAL']);
+    final address = P2shAddress(scriptPubKey: this);
+    return Script(script: ['OP_HASH160', address.h160, 'OP_EQUAL']);
   }
 
-  static Script fromRaw({required String hexData, bool hasSegwit = false}) {
+  static Script fromRaw({Uint8List? byteData, String? hexData, bool hasSegwit = false}) {
     List<String> commands = [];
     int index = 0;
-    final scriptraw = hexToBytes(hexData);
+    final scriptraw = byteData ?? (hexData != null ? hexToBytes(hexData) : null);
+    if (scriptraw == null) {
+      throw ArgumentError("Invalid script");
+    }
     while (index < scriptraw.length) {
       int byte = scriptraw[index];
       if (CODE_OPS.containsKey(byte)) {
@@ -66,14 +89,18 @@ class Script {
             .join());
         index = index + bytesToRead;
       } else {
-        final viAndSize = viToInt(scriptraw.sublist(index, index + 9));
-        int dataSize = viAndSize.$1;
-        int size = viAndSize.$2;
-        final lastIndex = (index + size + dataSize) > scriptraw.length
-            ? scriptraw.length
-            : (index + size + dataSize);
-        commands.add(bytesToHex(scriptraw.sublist(index + size, lastIndex)));
-        index = index + dataSize + size;
+        try {
+          final viAndSize = viToInt(scriptraw.sublist(index, index + 9));
+          int dataSize = viAndSize.$1;
+          int size = viAndSize.$2;
+          final lastIndex = (index + size + dataSize) > scriptraw.length
+              ? scriptraw.length
+              : (index + size + dataSize);
+          commands.add(bytesToHex(scriptraw.sublist(index + size, lastIndex)));
+          index = index + dataSize + size;
+        } catch (_) {
+          throw ArgumentError("Input is invalid");
+        }
       }
     }
     return Script(script: commands);
@@ -88,12 +115,10 @@ class Script {
     final four = s.script.elementAtOrNull(3);
     final five = s.script.elementAtOrNull(4);
     if (first == "OP_0") {
-      if (sec is String?) {
-        if (sec?.length == 40) {
-          return ScriptType.P2WPKH;
-        } else if (sec?.length == 64) {
-          return ScriptType.P2WSH;
-        }
+      if (sec?.length == 40) {
+        return ScriptType.P2WPKH;
+      } else if (sec?.length == 64) {
+        return ScriptType.P2WSH;
       }
     } else if (first == "OP_DUP") {
       if (sec == "OP_HASH160" && four == "OP_EQUALVERIFY" && five == "OP_CHECKSIG") {
@@ -116,14 +141,8 @@ class Script {
       for (var token in script) {
         if (OP_CODES.containsKey(token)) {
           scriptBytes.add(OP_CODES[token]!);
-        } else if (token is int && token >= 0 && token <= 16) {
-          scriptBytes.add(OP_CODES['OP_$token']!);
         } else {
-          if (token is int) {
-            scriptBytes.add(pushInteger(token));
-          } else {
-            scriptBytes.add(opPushData(token));
-          }
+          scriptBytes.add(opPushData(token));
         }
       }
 
@@ -141,6 +160,6 @@ class Script {
 
   @override
   String toString() {
-    return script.join(",");
+    return script.join(" ");
   }
 }

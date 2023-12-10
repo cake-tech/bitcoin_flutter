@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import '../../payments/address/core.dart';
-import '../../models/networks.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
 import '../../formatting/bytes_num_formatting.dart';
 import 'package:convert/convert.dart';
 import 'package:bs58check/bs58check.dart' as bs58check;
@@ -13,17 +13,21 @@ bool isValidAddress(String address, AddressType type, {NetworkType? network}) {
   final int networkPrefix = decode[0];
   switch (type) {
     case AddressType.p2pkh:
-      if (network != null) {
-        return networkPrefix == network.p2pkhPrefix;
+      if (network != null && networkPrefix != network.p2pkhPrefix) {
+        throw new ArgumentError('Invalid version or Network mismatch');
       }
-      return networkPrefix == NetworkType.BITCOIN.p2pkhPrefix ||
-          networkPrefix == NetworkType.TESTNET.p2pkhPrefix;
+
+      if (networkPrefix != NetworkType.BITCOIN.p2pkhPrefix &&
+          networkPrefix != NetworkType.TESTNET.p2pkhPrefix)
+        throw new ArgumentError('Invalid version or Network mismatch');
+
+      if (decode.sublist(1).length != 20) throw ArgumentError("Invalid address");
     case AddressType.p2pkhInP2sh:
     case AddressType.p2pkInP2sh:
     case AddressType.p2wshInP2sh:
     case AddressType.p2wpkhInP2sh:
-      if (network != null) {
-        return networkPrefix == network.p2shPrefix;
+      if (network != null && networkPrefix != network.p2pkhPrefix) {
+        throw new ArgumentError('Invalid version or Network mismatch');
       }
       return networkPrefix == NetworkType.BITCOIN.p2shPrefix ||
           networkPrefix == NetworkType.TESTNET.p2shPrefix;

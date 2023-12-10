@@ -1,11 +1,10 @@
 import 'dart:typed_data';
-// import 'package:bitcoin_base/bitcoin_base.dart';
 import 'package:bitcoin_flutter/src/formatting/bytes_tracker.dart';
+import 'package:bitcoin_flutter/src/payments/address/address.dart';
+import 'package:bitcoin_flutter/src/payments/script/script.dart';
+import 'package:bitcoin_flutter/src/utils/string.dart';
 import 'package:hex/hex.dart';
-// import 'package:pointycastle/impl.dart';
 import 'payments/index.dart' show PaymentData;
-import 'payments/p2pkh.dart' show P2PKH;
-import 'payments/p2pk.dart' show P2PK;
 import 'payments/p2wpkh.dart' show P2WPKH, P2TR;
 import 'crypto.dart' as bcrypto;
 import 'classify.dart';
@@ -362,7 +361,10 @@ class Transaction {
         varuint.encodingLength(outs.length) +
         ins.fold(0, (sum, input) => sum + 40 + varSliceSize(input.script!)) +
         outs.fold(0, (sum, output) => sum + 8 + varSliceSize(output.script!)) +
-        (hasWitness ? ins.fold(0, (sum, input) => sum + vectorSize(input.witness!)) : 0);
+        (hasWitness
+            ? ins.fold(
+                0, (sum, input) => input.witness != null ? (sum + vectorSize(input.witness!)) : 0)
+            : 0);
   }
 
   int vectorSize(List<Uint8List> someVector) {
@@ -707,20 +709,12 @@ class Input {
           keyPair: keyPair,
           value: value);
     } else if (type == SCRIPT_TYPES['P2PKH']) {
-      P2PKH p2pkh = new P2PKH(data: new PaymentData(input: scriptSig));
+      final p2pkh = new P2pkhAddress(scriptSig: Script.fromRaw(byteData: scriptSig));
       return new Input(
-          prevOutScript: p2pkh.data.output,
+          prevOutScript: p2pkh.scriptPubkey.toBytes(),
           prevOutType: SCRIPT_TYPES['P2PKH']!,
-          pubkeys: [p2pkh.data.pubkey!],
-          signatures: [p2pkh.data.signature!],
-          keyPair: keyPair,
-          value: value);
-    } else if (type == SCRIPT_TYPES['P2PK']) {
-      P2PK p2pk = new P2PK(data: new PaymentData(input: scriptSig));
-      return new Input(
-          prevOutType: SCRIPT_TYPES['P2PK']!,
-          pubkeys: [],
-          signatures: [p2pk.data.signature!],
+          pubkeys: [p2pkh.pubkey!.fromHex],
+          signatures: [p2pkh.signature!.fromHex],
           keyPair: keyPair,
           value: value);
     }
@@ -779,7 +773,8 @@ class Output {
       if (wpkh1 != wpkh2) throw ArgumentError('Hash mismatch!');
       return new Output(pubkeys: [ourPubKey], signatures: [null]);
     } else if (type == SCRIPT_TYPES['P2PKH']) {
-      Uint8List pkh1 = new P2PKH(data: new PaymentData(output: script)).data.hash!;
+      Uint8List pkh1 =
+          new P2pkhAddress(scriptPubKey: Script.fromRaw(byteData: script)).h160.fromHex;
       Uint8List pkh2 = bcrypto.hash160(ourPubKey);
       if (pkh1 != pkh2) throw ArgumentError('Hash mismatch!');
       return new Output(pubkeys: [ourPubKey], signatures: [null]);

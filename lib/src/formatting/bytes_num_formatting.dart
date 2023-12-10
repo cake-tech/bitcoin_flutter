@@ -4,6 +4,7 @@ import 'package:convert/convert.dart';
 
 /// ignore: implementation_imports
 import 'package:pointycastle/src/utils.dart' as p_utils;
+import 'package:bitcoin_flutter/src/utils/string.dart';
 
 String bytesToHex(
   List<int> bytes,
@@ -148,10 +149,7 @@ String strip0x(String hex) {
 }
 
 Uint8List hexToBytes(String hexStr) {
-  final bytes = hex.decode(strip0x(hexStr));
-  if (bytes is Uint8List) return bytes;
-
-  return Uint8List.fromList(bytes);
+  return strip0x(hexStr).fromHex;
 }
 
 int intFromBytes(List<int> bytes, Endian endian) {

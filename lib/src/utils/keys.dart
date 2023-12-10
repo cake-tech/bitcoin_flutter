@@ -8,12 +8,11 @@ class PrivateKeyInfo {
 }
 
 PublicKey getSumInputPubKeys(List<String> pubkeys) {
+  final curve = getSecp256k1();
   List<PublicKey> negatedKeys = [];
 
   for (final info in pubkeys) {
-    negatedKeys.add(PublicKey.fromHex(getSecp256k1(), info));
-    // final key = info.key;
-    // final isTaproot = info.isTaproot;
+    negatedKeys.add(PublicKey.fromHex(curve, info));
 
     // if (isTaproot && key.toCompressedHex().fromHex[0] == 0x03) {
     //   negatedKeys.add(PublicKey(getSecp256k1(), key.X, key.Y).negate()!);

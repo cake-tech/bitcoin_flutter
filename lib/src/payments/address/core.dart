@@ -1,5 +1,5 @@
-import '../script/script.dart';
-import '../../models/networks.dart';
+import 'package:bitcoin_flutter/src/payments/script/script.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
 
 enum AddressType {
   // deprecated address type
@@ -43,7 +43,8 @@ enum AddressType {
 }
 
 abstract class BitcoinAddress {
+  NetworkType get networkType;
   AddressType get type;
-  Script toScriptPubKey();
-  String toAddress(NetworkType networkType);
+  Script get scriptPubkey;
+  String get address;
 }

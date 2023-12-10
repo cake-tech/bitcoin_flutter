@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import 'models/networks.dart';
-import 'payments/address/address.dart';
-import 'payments/address/segwit_address.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
+import 'package:bitcoin_flutter/src/payments/address/address.dart';
+import 'package:bitcoin_flutter/src/payments/address/segwit_address.dart';
 
 class Address {
   static bool validateAddress(String address, [NetworkType? nw]) {
@@ -18,19 +18,19 @@ class Address {
     NetworkType network = nw ?? bitcoin;
 
     if (P2pkhAddress.REGEX.hasMatch(address)) {
-      return P2pkhAddress(address: address, network: network).toScriptPubKey().toBytes();
+      return P2pkhAddress(address: address, networkType: network).scriptPubkey.toBytes();
     }
 
     if (P2shAddress.REGEX.hasMatch(address)) {
-      return P2shAddress(address: address, network: network).toScriptPubKey().toBytes();
+      return P2shAddress(address: address, networkType: network).scriptPubkey.toBytes();
     }
 
     if (P2wpkhAddress.REGEX.hasMatch(address)) {
-      return P2wpkhAddress(address: address, network: network).toScriptPubKey().toBytes();
+      return P2wpkhAddress(address: address, networkType: network).scriptPubkey.toBytes();
     }
 
     if (P2trAddress.REGEX.hasMatch(address)) {
-      return P2trAddress(address: address, network: network).toScriptPubKey().toBytes();
+      return P2trAddress(address: address, networkType: network).scriptPubkey.toBytes();
     }
 
     throw new ArgumentError(address + ' has no matching Script');

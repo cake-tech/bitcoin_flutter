@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'dart:convert';
 import '../lib/src/ecpair.dart' show ECPair;
-import '../lib/src/models/networks.dart' as NETWORKS;
+import 'package:bitcoin_flutter/src/models/networks.dart' as NETWORKS;
 
 final ONE = HEX
     .decode('0000000000000000000000000000000000000000000000000000000000000001');

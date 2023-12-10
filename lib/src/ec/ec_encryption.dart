@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:bitcoin_flutter/src/utils/bigint.dart';
+import 'package:bitcoin_flutter/src/utils/uint8list.dart';
 import '../formatting/bytes_num_formatting.dart';
 import "package:pointycastle/ecc/curves/secp256k1.dart" show ECCurve_secp256k1;
 import 'package:pointycastle/ecc/api.dart' show ECPoint;
@@ -20,44 +21,61 @@ ECPoint? _decodeFrom(Uint8List P) {
 }
 
 int _compare(Uint8List a, Uint8List b) {
-  BigInt aa = decodeBigInt(a);
-  BigInt bb = decodeBigInt(b);
+  final aa = a.bigint;
+  final bb = b.bigint;
   if (aa == bb) return 0;
   if (aa > bb) return 1;
   return -1;
 }
 
 bool isPoint(Uint8List p) {
+  // Check if the input list has a length of at least 33 bytes, which is the minimum length required for a compressed representation of a point on the curve
   if (p.length < 33) {
     return false;
   }
+
+  // Extract the first byte of the input list, which represents the type of the point
   var t = p[0];
+
+  // Extract the next 32 bytes, which represent the X coordinate of the point
   var x = p.sublist(1, 33);
 
+  // Check if the X coordinate is equal to zero or infinity, which are invalid values for a point on the curve
   if (_compare(x, _zero32) == 0) {
     return false;
   }
   if (_compare(x, _ecP) == 1) {
     return false;
   }
+
   try {
     _decodeFrom(p);
   } catch (err) {
     return false;
   }
+
+  // Check if the point is a compressed representation of a point on the curve. If it is, return true.
   if ((t == 0x02 || t == 0x03) && p.length == 33) {
     return true;
   }
+
+  // Extract the next 32 bytes, which represent the Y coordinate of the point
   var y = p.sublist(33);
+
+  // Check if the Y coordinate is equal to zero or infinity, which are invalid values for a point on the curve
   if (_compare(y, _zero32) == 0) {
     return false;
   }
   if (_compare(y, _ecP) == 1) {
     return false;
   }
+
+  // Check if the point is an uncompressed representation of a point on the curve. If it is, return true
   if (t == 0x04 && p.length == 65) {
     return true;
   }
+
+  // If the point is not a valid point on the curve, return false
   return false;
 }
 
