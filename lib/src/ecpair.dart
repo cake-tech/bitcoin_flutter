@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'dart:math';
 import 'package:bip32/src/utils/ecurve.dart' as ecc;
 import 'package:bip32/src/utils/wif.dart' as wif;
-import 'models/networks.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
 import 'ec/ec_public.dart';
 import 'ec/ec_encryption.dart' as ec;
 import 'crypto.dart' as bcrypto;

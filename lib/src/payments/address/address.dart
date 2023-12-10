@@ -1,62 +1,107 @@
 import 'dart:typed_data';
 
 import 'core.dart';
-import '../script/script.dart';
+import 'package:bitcoin_flutter/src/payments/script/script.dart';
 import '../tools/tools.dart';
-import '../../crypto.dart';
-import '../../formatting/bytes_num_formatting.dart';
-import '../../models/networks.dart';
-import '../../ec/ec_encryption.dart';
+import '../constants/constants.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
+import '../../utils/string.dart';
+import '../../utils/uint8list.dart';
+import '../../utils/constants/op.dart';
 import 'package:bs58check/bs58check.dart' as bs58check;
+import 'package:bitcoin_flutter/src/utils/script.dart' as bscript;
 
 abstract class BipAddress implements BitcoinAddress {
   /// Represents a Bitcoin address
   ///
   /// [hash160] the hash160 string representation of the address; hash160 represents
-  /// two consequtive hashes of the public key or the redeam script, first
+  /// two consequtive hashes of the public key or the redeem script, first
   /// a SHA-256 and then an RIPEMD-160
-  BipAddress({String? address, String? hash160, Script? script, NetworkType? network}) {
-    if (hash160 != null) {
+  BipAddress({
+    String? address,
+    String? pubkey,
+    String? signature,
+    String? hash160,
+    Script? pubkeyScript,
+    Script? sigScript,
+    NetworkType? networkType,
+  }) {
+    this._networkType = networkType ?? NetworkType.BITCOIN;
+
+    if (sigScript != null) {
+      _decodeSigScript(sigScript);
+    } else {
+      if (pubkey != null) {
+        _pubkey = pubkey;
+      }
+      if (signature != null) {
+        _signature = signature;
+      }
+    }
+
+    if (_pubkey != null) {
+      final bytes = _pubkey!.hexToBytes;
+      if (!bytes.isPoint) {
+        throw ArgumentError("Input has invalid pubkey");
+      }
+      _h160 = _pubkey!.hexToBytes.ripemd160Hash.hex;
+    } else if (hash160 != null) {
       if (!isValidHash160(hash160)) {
         throw Exception("Invalid value for parameter hash160.");
       }
       _h160 = hash160;
     } else if (address != null) {
-      if (!isValidAddress(address, type, network: network)) {
-        throw ArgumentError("Invalid version or Network mismatch");
-      }
+      if (!isValidAddress(address, type, network: this.networkType))
+        throw ArgumentError("Invalid address");
+
       _h160 = _addressToHash160(address);
-    } else if (script != null) {
-      _h160 = _scriptToHash160(script);
+    } else if (pubkeyScript != null) {
+      _h160 = _scriptToHash160(pubkeyScript);
     } else {
       if (type == AddressType.p2pk) return;
-      throw ArgumentError("Invalid parameters");
+      throw ArgumentError("Not enough data");
     }
   }
 
+  String? _pubkey;
+  String? _signature;
   late final String _h160;
+  late final NetworkType _networkType;
 
-  /// returns the address's hash160 hex string representation
-  String get getH160 {
+  String? get pubkey {
+    return _pubkey;
+  }
+
+  String? get signature {
+    return _signature;
+  }
+
+  NetworkType get networkType {
+    return _networkType;
+  }
+
+  String get h160 {
     if (type == AddressType.p2pk) throw UnimplementedError();
     return _h160;
   }
 
-  static String _addressToHash160(String address) {
+  String _addressToHash160(String address) {
     final decode = bs58check.decode(address);
-    return bytesToHex(decode.sublist(1));
+    return decode.sublist(1).hex;
   }
 
-  static String _scriptToHash160(Script s) {
-    final b = s.toBytes();
-    final h160 = hash160(b);
-    return bytesToHex(h160);
+  String _scriptToHash160(Script s) {
+    throw UnimplementedError();
+  }
+
+  void _decodeSigScript(Script s) {
+    throw UnimplementedError();
   }
 
   /// returns the address's string encoding
   @override
-  String toAddress(NetworkType networkType, {Uint8List? h160}) {
-    Uint8List tobytes = h160 ?? hexToBytes(_h160);
+  String get address {
+    Uint8List tobytes = _h160.hexToBytes;
     switch (type) {
       case AddressType.p2wpkhInP2sh:
       case AddressType.p2wshInP2sh:
@@ -74,63 +119,127 @@ abstract class BipAddress implements BitcoinAddress {
 }
 
 class P2shAddress extends BipAddress {
+  P2shAddress({
+    super.address,
+    super.pubkey,
+    super.signature,
+    super.hash160,
+    super.pubkeyScript,
+    super.sigScript,
+    super.networkType,
+  }) : type = AddressType.p2pkInP2sh;
+
   static RegExp get REGEX => RegExp(r'^[23][a-km-zA-HJ-NP-Z1-9]{25,34}$');
 
-  /// Encapsulates a P2SH address.
-  P2shAddress({super.address, super.hash160, super.script, super.network})
-      : type = AddressType.p2pkInP2sh;
-  P2shAddress.fromScript({super.script, this.type = AddressType.p2pkInP2sh})
+  @override
+  final AddressType type;
+
+  P2shAddress.fromScript({super.pubkeyScript, this.type = AddressType.p2pkInP2sh})
       : assert(type == AddressType.p2pkInP2sh ||
             type == AddressType.p2pkhInP2sh ||
             type == AddressType.p2wpkhInP2sh ||
             type == AddressType.p2wshInP2sh);
 
   @override
-  final AddressType type;
-
-  /// Returns the scriptPubKey (P2SH) that corresponds to this address
-  @override
-  Script toScriptPubKey() {
-    return Script(script: ['OP_HASH160', _h160, 'OP_EQUAL']);
+  Script get pubkeyScript {
+    return Script(script: [OP_WORDS.OP_HASH160, _h160, OP_WORDS.OP_EQUAL]);
   }
 }
 
 class P2pkhAddress extends BipAddress {
+  P2pkhAddress({
+    super.address,
+    super.pubkey,
+    super.signature,
+    super.hash160,
+    super.pubkeyScript,
+    super.sigScript,
+    super.networkType,
+  });
+
   static RegExp get REGEX => RegExp(r'^[1mn][a-km-zA-HJ-NP-Z1-9]{25,34}$');
 
-  P2pkhAddress({super.address, super.hash160, super.network});
-
-  /// Returns the scriptPubKey (P2SH) that corresponds to this address
   @override
-  Script toScriptPubKey() {
-    return Script(script: ['OP_DUP', 'OP_HASH160', _h160, 'OP_EQUALVERIFY', 'OP_CHECKSIG']);
+  Script get pubkeyScript {
+    return Script(script: [
+      OP_WORDS.OP_DUP,
+      OP_WORDS.OP_HASH160,
+      _h160,
+      OP_WORDS.OP_EQUALVERIFY,
+      OP_WORDS.OP_CHECKSIG
+    ]);
   }
 
   @override
   AddressType get type => AddressType.p2pkh;
+
+  // https://bitcoin.stackexchange.com/questions/105262/is-a-valid-bitcoin-address-character
+  static bool validPubkeyScript(Uint8List data) {
+    // A P2PKH output script is composed of the following instructions:
+    return data.length == 25 &&
+        // OP_DUP (0x76)
+        data[0] == OPS['OP_DUP'] &&
+        // OP_HASH160 (0xa9)
+        data[1] == OPS['OP_HASH160'] &&
+        // 0x14 (20 in hexadecimal, indicating a 20 byte push)
+        data[2] == 0x14 &&
+        // <pubkey hash> (20 bytes)
+        // ... data[3] to data[22] ...
+        // OP_EQUALVERIFY (0x88)
+        data[23] == OPS['OP_EQUALVERIFY'] &&
+        // OP_CHECKSIG (0xac)
+        data[24] == OPS['OP_CHECKSIG'];
+  }
+
+  @override
+  String _scriptToHash160(Script s) {
+    if (!validPubkeyScript(s.toBytes())) throw new ArgumentError('Output is invalid');
+    final h160 = s.script[2];
+    return h160;
+  }
+
+  static bool validSigScript(List<dynamic>? data) {
+    if (data == null || data.isEmpty) throw new ArgumentError('Input is invalid');
+
+    List<String> chunks =
+        (data is Uint8List) ? Script.fromRaw(byteData: data).script : (data as List<String>);
+
+    if (chunks.length != 2) throw new ArgumentError('Input is invalid');
+
+    if (!bscript.isCanonicalScriptSignature(chunks[0].fromHex))
+      throw new ArgumentError('Input has invalid signature');
+
+    if (!bscript.isCanonicalPubKey(chunks[1].fromHex))
+      throw new ArgumentError('Input has invalid pubkey');
+
+    return true;
+  }
+
+  @override
+  void _decodeSigScript(Script sigScript) {
+    final chunks = sigScript.script;
+    if (!validSigScript(sigScript.script)) throw new ArgumentError('Input is invalid');
+
+    _pubkey = chunks[1];
+    _signature = chunks[0];
+  }
+
+  Script get sigScript {
+    return Script(script: [_signature, _pubkey]);
+  }
 }
 
+// Deprecated but may be useful for library uses, like identifying old P2PK payments, parsing addresses etc
 class P2pkAddress extends BipAddress {
-  P2pkAddress({required String publicKey}) {
-    final toBytes = hexToBytes(publicKey);
-    if (!isPoint(toBytes)) {
-      throw ArgumentError("The public key is wrong");
-    }
-    publicHex = publicKey;
-  }
+  P2pkAddress({required super.pubkey});
+
+  static RegExp get REGEX => RegExp(r'^1([A-Za-z0-9]{34})$');
+
   late final String publicHex;
 
-  /// Returns the scriptPubKey (P2SH) that corresponds to this address
   @override
-  Script toScriptPubKey() {
-    return Script(script: [publicHex, 'OP_CHECKSIG']);
-  }
-
-  @override
-  String toAddress(NetworkType networkType, {Uint8List? h160}) {
-    final bytes = hexToBytes(publicHex);
-    Uint8List ripemd160Hash = hash160(bytes);
-    return super.toAddress(networkType, h160: ripemd160Hash);
+  Script get pubkeyScript {
+    return Script(script: [publicHex, OP_WORDS.OP_CHECKSIG]);
   }
 
   @override

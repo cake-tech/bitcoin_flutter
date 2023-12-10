@@ -3,7 +3,7 @@ import '../payments/address/address.dart';
 import '../payments/address/core.dart';
 import '../payments/address/segwit_address.dart';
 import '../payments/constants/constants.dart';
-import '../payments/script/script.dart';
+import 'package:bitcoin_flutter/src/payments/script/script.dart';
 import '../crypto.dart';
 import '../formatting/bytes_num_formatting.dart';
 import 'ec_encryption.dart';
@@ -78,7 +78,7 @@ class ECPublic {
   /// If 'compressed' is true, the key is in compressed format.
   P2pkAddress toP2pkAddress({bool compressed = true}) {
     final h = toHex(compressed: compressed);
-    return P2pkAddress(publicKey: h);
+    return P2pkAddress(pubkey: h);
   }
 
   /// toRedeemScript generates a redeem script from the ECPublic key.
@@ -93,14 +93,14 @@ class ECPublic {
   /// If 'compressed' is true, the key is in compressed format.
   P2shAddress toP2pkhInP2sh({bool compressed = true}) {
     final addr = toAddress(compressed: compressed);
-    return P2shAddress.fromScript(script: addr.toScriptPubKey(), type: AddressType.p2pkhInP2sh);
+    return P2shAddress.fromScript(pubkeyScript: addr.pubkeyScript, type: AddressType.p2pkhInP2sh);
   }
 
   /// toP2pkInP2sh generates a P2SH (Pay-to-Script-Hash) address
   /// wrapping a P2PK (Pay-to-Public-Key) script derived from the ECPublic key.
   /// If 'compressed' is true, the key is in compressed format.
   P2shAddress toP2pkInP2sh({bool compressed = true}) {
-    return P2shAddress(script: toRedeemScript(compressed: compressed));
+    return P2shAddress(pubkeyScript: toRedeemScript(compressed: compressed));
   }
 
   /// ToTaprootAddress generates a P2TR(Taproot) address from the ECPublic key
@@ -117,7 +117,7 @@ class ECPublic {
   /// If 'compressed' is true, the key is in compressed format.
   P2shAddress toP2wpkhInP2sh({bool compressed = true}) {
     final addr = toSegwitAddress(compressed: compressed);
-    return P2shAddress.fromScript(script: addr.toScriptPubKey(), type: AddressType.p2wpkhInP2sh);
+    return P2shAddress.fromScript(pubkeyScript: addr.pubkeyScript, type: AddressType.p2wpkhInP2sh);
   }
 
   /// toP2wshScript generates a P2WSH (Pay-to-Witness-Script-Hash) script
@@ -137,7 +137,7 @@ class ECPublic {
   /// If 'compressed' is true, the key is in compressed format.
   P2shAddress toP2wshInP2sh({bool compressed = true}) {
     final p2sh = toP2wshAddress(compressed: compressed);
-    return P2shAddress.fromScript(script: p2sh.toScriptPubKey(), type: AddressType.p2wshInP2sh);
+    return P2shAddress.fromScript(pubkeyScript: p2sh.pubkeyScript, type: AddressType.p2wshInP2sh);
   }
 
   /// calculateTweek computes and returns the TapTweak value based on the ECPublic key

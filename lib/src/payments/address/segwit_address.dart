@@ -1,10 +1,10 @@
 import '../../crypto.dart';
 import '../../formatting/bytes_num_formatting.dart';
 
-import '../../models/networks.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
 import 'core.dart';
 import '../constants/constants.dart';
-import '../script/script.dart';
+import 'package:bitcoin_flutter/src/payments/script/script.dart';
 import '../../utils/string.dart';
 import '../../utils/uint8list.dart';
 import '../../ec/ec_public.dart';
@@ -21,8 +21,10 @@ abstract class SegwitAddress implements BitcoinAddress {
       String? program,
       Script? script,
       String? pubkey,
-      NetworkType? network,
+      NetworkType? networkType,
       this.version = P2WPKH_ADDRESS_V0}) {
+    this._networkType = networkType ?? NetworkType.BITCOIN;
+
     if (version == P2WPKH_ADDRESS_V0 || version == P2WSH_ADDRESS_V0) {
       segwitNumVersion = 0;
     } else if (version == P2TR_ADDRESS_V1) {
@@ -33,7 +35,7 @@ abstract class SegwitAddress implements BitcoinAddress {
     if (program != null) {
       _program = program;
     } else if (address != null) {
-      _program = _addressToHash(address, network: network);
+      _program = _addressToHash(address);
     } else if (script != null) {
       _program = _scriptToHash(script);
     } else if (pubkey != null) {
@@ -47,9 +49,13 @@ abstract class SegwitAddress implements BitcoinAddress {
 
   final String version;
   late final int segwitNumVersion;
+  late final NetworkType _networkType;
 
-  String _addressToHash(String address, {NetworkType? network}) {
-    network ??= bitcoin;
+  NetworkType get networkType {
+    return _networkType;
+  }
+
+  String _addressToHash(String address) {
     Segwit? convert;
     try {
       convert = segwit.decode(address, isBech32m: this.version == P2TR_ADDRESS_V1);
@@ -58,7 +64,7 @@ abstract class SegwitAddress implements BitcoinAddress {
       throw ArgumentError("Invalid value for parameter address.");
     }
 
-    if (network.bech32 != convert.hrp)
+    if (networkType.bech32 != convert.hrp)
       throw new ArgumentError('Invalid prefix or Network mismatch');
 
     if (convert.version != segwitNumVersion) {
@@ -69,7 +75,7 @@ abstract class SegwitAddress implements BitcoinAddress {
 
   /// returns the address's string encoding (Bech32)
   @override
-  String toAddress(NetworkType networkType) {
+  String get address {
     final bytes = hexToBytes(_program);
     String? sw;
     try {
@@ -93,12 +99,12 @@ class P2wpkhAddress extends SegwitAddress {
   static RegExp get REGEX => RegExp(r'^(bc|tb)1q[ac-hj-np-z02-9]{25,39}$');
 
   /// Encapsulates a P2WPKH address.
-  P2wpkhAddress({super.address, super.program, super.pubkey, super.network})
+  P2wpkhAddress({super.address, super.program, super.pubkey, super.networkType})
       : super(version: P2WPKH_ADDRESS_V0);
 
   /// returns the scriptPubKey of a P2WPKH witness script
   @override
-  Script toScriptPubKey() {
+  Script get pubkeyScript {
     return Script(script: ['OP_0', _program]);
   }
 
@@ -112,14 +118,14 @@ class P2trAddress extends SegwitAddress {
       RegExp(r'^(bc)|(tb)1p([ac-hj-np-z02-9]{39}|[ac-hj-np-z02-9]{59})|1p[ac-hj-np-z02-9]{8,89}$');
 
   /// Encapsulates a P2TR (Taproot) address.
-  P2trAddress({String? program, super.address, String? pubkey, super.network})
+  P2trAddress({String? program, super.address, String? pubkey, super.networkType})
       : super(
             version: P2TR_ADDRESS_V1,
             program: program ?? (pubkey != null ? ECPublic.fromHex(pubkey).toTapPoint() : null));
 
   /// returns the address's string encoding (Bech32m different from Bech32)
   @override
-  String toAddress(NetworkType networkType) {
+  String get address {
     final bytes = hexToBytes(_program);
     String? sw;
     try {
@@ -134,7 +140,7 @@ class P2trAddress extends SegwitAddress {
 
   /// returns the scriptPubKey of a P2TR witness script
   @override
-  Script toScriptPubKey() {
+  Script get pubkeyScript {
     return Script(script: ['OP_1', _program]);
   }
 
@@ -149,7 +155,7 @@ class P2wshAddress extends SegwitAddress {
 
   /// Returns the scriptPubKey of a P2WPKH witness script
   @override
-  Script toScriptPubKey() {
+  Script get pubkeyScript {
     return Script(script: ['OP_0', _program]);
   }
 

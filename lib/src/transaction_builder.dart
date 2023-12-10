@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:bitcoin_flutter/src/utils/constants/op.dart';
+import 'package:bitcoin_flutter/src/utils/uint8list.dart';
+import 'package:bitcoin_flutter/src/payments/address/address.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
+import 'package:bitcoin_flutter/src/address.dart';
 import 'package:hex/hex.dart';
 import 'utils/script.dart' as bscript;
-import 'utils/uint8list.dart';
 import 'ecpair.dart' as ecpair;
-import 'models/networks.dart';
 import 'transaction.dart';
-import 'address.dart';
 import 'payments/index.dart' show PaymentData;
-import 'payments/p2pkh.dart';
 import 'payments/p2wpkh.dart';
 import 'classify.dart';
 import 'package:bitcoin_base/bitcoin.dart' as bitcoin_base;
@@ -176,29 +176,27 @@ class TransactionBuilder {
           input.hasWitness = true;
           input.signatures = [null];
           input.pubkeys = [ourPubKey];
-          input.signScript =
-              new P2PKH(data: new PaymentData(pubkey: ourPubKey), network: this.network)
-                  .data
-                  .output;
+          input.signScript = new P2pkhAddress(pubkey: ourPubKey.hex, networkType: this.network)
+              .pubkeyScript
+              .toBytes();
         } else if (type == SCRIPT_TYPES['P2TR']) {
           input.prevOutType = SCRIPT_TYPES['P2TR'];
           input.hasWitness = true;
           input.signatures = [null];
           input.pubkeys = [ourPubKey];
-          input.signScript =
-              new P2PKH(data: new PaymentData(pubkey: ourPubKey), network: this.network)
-                  .data
-                  .output;
+          input.signScript = new P2pkhAddress(pubkey: ourPubKey.hex, networkType: this.network)
+              .pubkeyScript
+              .toBytes();
         } else {
           // DRY CODE
-          Uint8List prevOutScript = pubkeyToOutputScript(ourPubKey);
+          Uint8List prevOutScript = _pubkeyToOutputScript(ourPubKey);
           input.prevOutType = SCRIPT_TYPES['P2PKH'];
           input.signatures = [null];
           input.pubkeys = [ourPubKey];
           input.signScript = prevOutScript;
         }
       } else {
-        Uint8List prevOutScript = pubkeyToOutputScript(ourPubKey);
+        Uint8List prevOutScript = _pubkeyToOutputScript(ourPubKey);
         input.prevOutType = SCRIPT_TYPES['P2PKH'];
         input.signatures = [null];
         input.pubkeys = [ourPubKey];
@@ -297,12 +295,12 @@ class TransactionBuilder {
           _inputs[i].pubkeys!.length != 0 &&
           _inputs[i].signatures!.length != 0) {
         if (_inputs[i].prevOutType == SCRIPT_TYPES['P2PKH']) {
-          P2PKH payment = new P2PKH(
-              data: new PaymentData(
-                  pubkey: _inputs[i].pubkeys![0], signature: _inputs[i].signatures![0]),
-              network: network);
-          tx.setInputScript(i, payment.data.input);
-          tx.setWitness(i, payment.data.witness);
+          final payment = new P2pkhAddress(
+              pubkey: _inputs[i].pubkeys![0]?.hex,
+              signature: _inputs[i].signatures![0]?.hex,
+              networkType: network);
+          tx.setInputScript(i, payment.sigScript.toBytes());
+          tx.setWitness(i, null);
         } else if (_inputs[i].prevOutType == SCRIPT_TYPES['P2WPKH']) {
           P2WPKH payment = new P2WPKH(
               data: new PaymentData(
@@ -437,8 +435,8 @@ class TransactionBuilder {
   Map get prevTxSet => _prevTxSet;
 }
 
-Uint8List pubkeyToOutputScript(Uint8List pubkey, [NetworkType? nw]) {
+Uint8List _pubkeyToOutputScript(Uint8List pubkey, [NetworkType? nw]) {
   NetworkType network = nw ?? bitcoin;
-  P2PKH p2pkh = new P2PKH(data: new PaymentData(pubkey: pubkey), network: network);
-  return p2pkh.data.output!;
+  final p2pkh = new P2pkhAddress(pubkey: pubkey.hex, networkType: network);
+  return p2pkh.pubkeyScript.toBytes();
 }

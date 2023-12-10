@@ -1,74 +1,90 @@
 import 'package:bitcoin_flutter/src/payments/index.dart' show PaymentData;
-import 'package:bitcoin_flutter/src/payments/p2pkh.dart';
+import 'package:bitcoin_flutter/src/payments/address/address.dart';
+import 'package:bitcoin_flutter/src/payments/script/script.dart';
 import 'package:test/test.dart';
 import 'package:bitcoin_flutter/src/utils/script.dart' as bscript;
+import 'package:bitcoin_flutter/src/utils/uint8list.dart';
+import 'package:bitcoin_flutter/src/utils/string.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:hex/hex.dart';
-import 'dart:typed_data';
 
 main() {
-  final fixtures = json.decode(new File("./test/fixtures/p2pkh.json").readAsStringSync(encoding: utf8));
+  final fixtures =
+      json.decode(new File("./test/fixtures/p2pkh.json").readAsStringSync(encoding: utf8));
   group('(valid case)', () {
     (fixtures["valid"] as List<dynamic>).forEach((f) {
       test(f['description'] + ' as expected', () {
         final arguments = _preformPaymentData(f['arguments']);
-        final p2pkh = new P2PKH(data: arguments);
+        final p2pkh = new P2pkhAddress(
+          address: arguments.address,
+          hash160: arguments.hash?.hex,
+          pubkey: arguments.pubkey?.hex,
+          signature: arguments.signature?.hex,
+          sigScript: arguments.input != null ? Script.fromRaw(byteData: arguments.input) : null,
+          pubkeyScript:
+              arguments.output != null ? Script.fromRaw(byteData: arguments.output) : null,
+        );
+
         if (arguments.address == null) {
-          expect(p2pkh.data.address, f['expected']['address']);
+          expect(p2pkh.address, f['expected']['address']);
         }
         if (arguments.hash == null) {
-          expect(_toString(p2pkh.data.hash), f['expected']['hash']);
+          expect(p2pkh.h160, f['expected']['hash']);
         }
         if (arguments.pubkey == null) {
-          expect(_toString(p2pkh.data.pubkey), f['expected']['pubkey']);
+          expect(p2pkh.pubkey, f['expected']['pubkey']);
         }
-        if (arguments.input == null) {
-          expect(_toString(p2pkh.data.input), f['expected']['input']);
+        if (arguments.input == null && f['expected']['input'] != null) {
+          expect(
+              Script(script: [p2pkh.signature, p2pkh.pubkey]).toString(), f['expected']['input']);
         }
         if (arguments.output == null) {
-          expect(_toString(p2pkh.data.output), f['expected']['output']);
+          expect(p2pkh.pubkeyScript.toString(), f['expected']['output']);
         }
         if (arguments.signature == null) {
-          expect(_toString(p2pkh.data.signature), f['expected']['signature']);
+          expect(p2pkh.signature, f['expected']['signature']);
         }
       });
     });
   });
   group('(invalid case)', () {
     (fixtures["invalid"] as List<dynamic>).forEach((f) {
-      test('throws ' + f['exception'] + (f['description'] != null ? ('for ' + f['description']) : ''), () {
+      test(
+          'throws ' +
+              f['exception'] +
+              (f['description'] != null ? (' for ' + f['description']) : ''), () {
         final arguments = _preformPaymentData(f['arguments']);
         try {
-          expect(new P2PKH(data: arguments), isArgumentError);
-        } catch(err) {
+          expect(
+              new P2pkhAddress(
+                address: arguments.address,
+                hash160: arguments.hash?.hex,
+                pubkey: arguments.pubkey?.hex,
+                signature: arguments.signature?.hex,
+                sigScript:
+                    arguments.input != null ? Script.fromRaw(byteData: arguments.input) : null,
+                pubkeyScript:
+                    arguments.output != null ? Script.fromRaw(byteData: arguments.output) : null,
+              ),
+              isArgumentError);
+        } catch (err) {
           expect((err as ArgumentError).message, f['exception']);
         }
-
       });
     });
   });
 }
 
 PaymentData _preformPaymentData(dynamic x) {
-  final address = x['address'];
-  final hash = x['hash'] != null ? Uint8List.fromList(HEX.decode(x['hash'])) : null;
-  final input = x['input'] != null ? bscript.fromASM(x['input']) : null;
-  final output = x['output'] != null ? bscript.fromASM(x['output']) : x['outputHex'] != null ? Uint8List.fromList(HEX.decode(x['outputHex'])) : null;
-  final pubkey = x['pubkey'] != null ? Uint8List.fromList(HEX.decode(x['pubkey'])) : null;
-  final signature = x['signature'] != null ? Uint8List.fromList(HEX.decode(x['signature'])) : null;
-  return new PaymentData(address: address, hash: hash, input: input, output: output, pubkey: pubkey, signature: signature);
-}
-
-String? _toString(dynamic x) {
-  if (x == null) {
-    return null;
-  }
-  if (x is Uint8List) {
-    return HEX.encode(x);
-  }
-  if (x is List<dynamic>) {
-    return bscript.toASM(x);
-  }
-  return '';
+  return new PaymentData(
+      address: x['address'],
+      hash: x['hash'] != null ? (x['hash'] as String).fromHex : null,
+      input: x['input'] != null ? bscript.fromASM(x['input']) : null,
+      output: x['output'] != null
+          ? bscript.fromASM(x['output'])
+          : x['outputHex'] != null
+              ? (x['outputHex'] as String).fromHex
+              : null,
+      pubkey: x['pubkey'] != null ? (x['pubkey'] as String).fromHex : null,
+      signature: x['signature'] != null ? (x['signature'] as String).fromHex : null);
 }

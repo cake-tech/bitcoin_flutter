@@ -2,6 +2,95 @@
 /// Constants and identifiers used in the Bitcoin-related code.
 // ignore_for_file: constant_identifier_names, non_constant_identifier_names, equal_keys_in_map
 
+enum OP_WORDS {
+  OP_0,
+  OP_FALSE,
+  OP_PUSHDATA1,
+  OP_PUSHDATA2,
+  OP_PUSHDATA4,
+  OP_1NEGATE,
+  OP_1,
+  OP_TRUE,
+  OP_2,
+  OP_3,
+  OP_4,
+  OP_5,
+  OP_6,
+  OP_7,
+  OP_8,
+  OP_9,
+  OP_10,
+  OP_11,
+  OP_12,
+  OP_13,
+  OP_14,
+  OP_15,
+  OP_16,
+  OP_NOP,
+  OP_IF,
+  OP_NOTIF,
+  OP_ELSE,
+  OP_ENDIF,
+  OP_VERIFY,
+  OP_RETURN,
+  OP_TOALTSTACK,
+  OP_FROMALTSTACK,
+  OP_IFDUP,
+  OP_DEPTH,
+  OP_DROP,
+  OP_DUP,
+  OP_NIP,
+  OP_OVER,
+  OP_PICK,
+  OP_ROLL,
+  OP_ROT,
+  OP_SWAP,
+  OP_TUCK,
+  OP_2DROP,
+  OP_2DUP,
+  OP_3DUP,
+  OP_2OVER,
+  OP_2ROT,
+  OP_2SWAP,
+  OP_SIZE,
+  OP_EQUAL,
+  OP_EQUALVERIFY,
+  OP_1ADD,
+  OP_1SUB,
+  OP_NEGATE,
+  OP_ABS,
+  OP_NOT,
+  OP_0NOTEQUAL,
+  OP_ADD,
+  OP_SUB,
+  OP_BOOLAND,
+  OP_BOOLOR,
+  OP_NUMEQUAL,
+  OP_NUMEQUALVERIFY,
+  OP_NUMNOTEQUAL,
+  OP_LESSTHAN,
+  OP_GREATERTHAN,
+  OP_LESSTHANOREQUAL,
+  OP_GREATERTHANOREQUAL,
+  OP_MIN,
+  OP_MAX,
+  OP_WITHIN,
+  OP_RIPEMD160,
+  OP_SHA1,
+  OP_SHA256,
+  OP_HASH160,
+  OP_HASH256,
+  OP_CODESEPARATOR,
+  OP_CHECKSIG,
+  OP_CHECKSIGVERIFY,
+  OP_CHECKMULTISIG,
+  OP_CHECKMULTISIGVERIFY,
+  OP_NOP2,
+  OP_CHECKLOCKTIMEVERIFY,
+  OP_NOP3,
+  OP_CHECKSEQUENCEVERIFY,
+}
+
 const Map<String, List<int>> OP_CODES = {
   'OP_0': [0x00],
   'OP_FALSE': [0x00],
@@ -120,6 +209,11 @@ const Map<String, List<int>> OP_CODES = {
   'OP_CHECKLOCKTIMEVERIFY': [0xb1],
   'OP_NOP3': [0xb2],
   'OP_CHECKSEQUENCEVERIFY': [0xb2],
+
+  /// reserved words
+  'OP_RESERVED': [0x50],
+  'OP_RESERVED1': [0x89],
+  'OP_RESERVED2': [0x8a],
 };
 
 Map<int, String> CODE_OPS = {
@@ -222,6 +316,11 @@ Map<int, String> CODE_OPS = {
   178: 'OP_NOP3',
   177: 'OP_CHECKLOCKTIMEVERIFY',
   178: 'OP_CHECKSEQUENCEVERIFY',
+
+  /// reserved words
+  80: 'OP_RESERVED',
+  137: 'OP_RESERVED1',
+  138: 'OP_RESERVED2',
 };
 
 /// SIGHASH types
@@ -255,4 +354,3 @@ const String P2SH_ADDRESS = "p2sh";
 const String P2WPKH_ADDRESS_V0 = "p2wpkhv0";
 const String P2WSH_ADDRESS_V0 = "p2wshv0";
 const String P2TR_ADDRESS_V1 = "p2trv1";
-

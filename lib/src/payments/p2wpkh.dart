@@ -4,7 +4,7 @@ import 'package:bip32/src/utils/ecurve.dart' show isPoint;
 import 'package:bech32/bech32.dart';
 
 import '../crypto.dart';
-import '../models/networks.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
 import '../payments/index.dart' show PaymentData;
 import '../utils/script.dart' as bscript;
 import '../utils/constants/op.dart';

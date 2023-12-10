@@ -11,7 +11,6 @@ export 'src/transaction_builder.dart';
 export 'src/ecpair.dart';
 export 'src/ec/ec_public.dart';
 export 'src/ec/ec_encryption.dart';
-export 'src/payments/p2pkh.dart';
 export 'src/payments/p2wpkh.dart';
 export 'src/payments/index.dart';
 export 'src/payments/scanning.dart';
