@@ -129,7 +129,7 @@ class P2shAddress extends BipAddress {
     super.networkType,
   }) : type = AddressType.p2pkInP2sh;
 
-  static RegExp get REGEX => RegExp(r'^[23][a-km-zA-HJ-NP-Z1-9]{25,34}$');
+  static RegExp get REGEX => RegExp(r'[23][a-km-zA-HJ-NP-Z1-9]{25,34}');
 
   @override
   final AddressType type;
@@ -157,7 +157,10 @@ class P2pkhAddress extends BipAddress {
     super.networkType,
   });
 
-  static RegExp get REGEX => RegExp(r'^[1mn][a-km-zA-HJ-NP-Z1-9]{25,34}$');
+  static RegExp get REGEX => RegExp(r'[1mn][a-km-zA-HJ-NP-Z1-9]{25,34}');
+  static get overheadSizeVB => 10;
+  static get inputSizeVB => 148;
+  static get outputSizeVB => 34;
 
   @override
   Script get scriptPubkey {
@@ -233,7 +236,7 @@ class P2pkhAddress extends BipAddress {
 class P2pkAddress extends BipAddress {
   P2pkAddress({required super.pubkey});
 
-  static RegExp get REGEX => RegExp(r'^1([A-Za-z0-9]{34})$');
+  static RegExp get REGEX => RegExp(r'1([A-Za-z0-9]{34})');
 
   late final String publicHex;
 
