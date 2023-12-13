@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:bitcoin_flutter/src/formatting/bytes_tracker.dart';
 import 'package:bitcoin_flutter/src/payments/address/address.dart';
 import 'package:bitcoin_flutter/src/payments/script/script.dart';
+import 'package:bitcoin_flutter/src/payments/constants/constants.dart';
 import 'package:bitcoin_flutter/src/utils/string.dart';
 import 'package:hex/hex.dart';
 import 'payments/index.dart' show PaymentData;
@@ -17,20 +18,6 @@ import 'utils/uint8list.dart';
 import 'package:collection/collection.dart';
 import 'formatting/bytes_num_formatting.dart';
 
-const LEAF_VERSION_TAPSCRIPT = 0xc0;
-const DEFAULT_SEQUENCE = 0xffffffff;
-const SIGHASH_ALL = 0x01;
-const TAPROOT_SIGHASH_ALL = 0x00;
-const SIGHASH_NONE = 0x02;
-const SIGHASH_SINGLE = 0x03;
-const SIGHASH_ANYONECANPAY = 0x80;
-const ADVANCED_TRANSACTION_MARKER = 0x00;
-const ADVANCED_TRANSACTION_FLAG = 0x01;
-final EMPTY_SCRIPT = Uint8List.fromList([]);
-final EMPTY_WITNESS = <Uint8List>[];
-final ZERO = HEX.decode('0000000000000000000000000000000000000000000000000000000000000000');
-final ONE = HEX.decode('0000000000000000000000000000000000000000000000000000000000000001');
-final VALUE_UINT64_MAX = HEX.decode('ffffffffffffffff');
 final BLANK_OUTPUT =
     new Output(script: EMPTY_SCRIPT, valueBuffer: Uint8List.fromList(VALUE_UINT64_MAX));
 
@@ -678,7 +665,7 @@ class Input {
       throw new ArgumentError('Invalid input index');
     if (this.sequence != null && !isUint(this.sequence!, 32))
       throw new ArgumentError('Invalid input sequence');
-    if (this.value != null && !isShatoshi(this.value!)) throw ArgumentError('Invalid ouput value');
+    if (this.value != null && !isSatoshi(this.value!)) throw ArgumentError('Invalid ouput value');
   }
 
   factory Input.expandInput(Uint8List scriptSig, List<Uint8List> witness,
@@ -756,7 +743,7 @@ class Output {
   List<Uint8List?>? signatures;
 
   Output({this.script, this.value, this.pubkeys, this.signatures, this.valueBuffer}) {
-    if (value != null && !isShatoshi(value!)) throw ArgumentError('Invalid ouput value');
+    if (value != null && !isSatoshi(value!)) throw ArgumentError('Invalid ouput value');
   }
 
   factory Output.expandOutput(Uint8List script, [Uint8List? ourPubKey]) {

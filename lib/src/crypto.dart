@@ -20,6 +20,19 @@ Uint8List hash256(Uint8List buffer) {
   return new SHA256Digest().process(_tmp);
 }
 
+/// Function: doubleHash
+/// Description: Computes a double SHA-256 hash of the input data.
+/// Input: Uint8List buffer - The data to be hashed.
+/// Output: Uint8List - The resulting double SHA-256 hash.
+/// Note: Double hashing is a common cryptographic technique used to enhance data security.
+Uint8List doubleHash(Uint8List buffer) {
+  /// Compute the first SHA-256 hash of the input data.
+  Uint8List tmp = SHA256Digest().process(buffer);
+
+  /// Compute the second SHA-256 hash of the first hash.
+  return SHA256Digest().process(tmp);
+}
+
 /// Function: singleHash
 /// Description: Computes a single SHA-256 hash of the input data.
 /// Input: Uint8List buffer - The data to be hashed.

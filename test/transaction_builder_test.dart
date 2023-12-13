@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:hex/hex.dart';
 import 'package:bitcoin_flutter/src/models/networks.dart';
+import 'package:bitcoin_flutter/src/payments/constants/constants.dart';
 import '../lib/src/ecpair.dart';
 import '../lib/src/transaction.dart';
 import '../lib/src/address.dart';

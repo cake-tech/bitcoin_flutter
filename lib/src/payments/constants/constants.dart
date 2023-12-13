@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:hex/hex.dart';
+
 /// ignore_for_file: constant_identifier_names, equal_keys_in_map, non_constant_identifier_names
 /// Constants and identifiers used in the Bitcoin-related code.
 // ignore_for_file: constant_identifier_names, non_constant_identifier_names, equal_keys_in_map
@@ -344,7 +348,8 @@ const List<int> REPLACE_BY_FEE_SEQUENCE = [0x01, 0x00, 0x00, 0x00];
 
 /// Script version and Bitcoin-related identifiers
 const int LEAF_VERSION_TAPSCRIPT = 0xc0;
-const List<int> DEFAULT_TX_VERSION = [0x02, 0x00, 0x00, 0x00];
+const List<int> DEFAULT_TX_VERSION = [0x01, 0x00, 0x00, 0x00];
+const List<int> TX_VERSION_2 = [0x02, 0x00, 0x00, 0x00];
 const int SATOSHIS_PER_BITCOIN = 100000000;
 const int NEGATIVE_SATOSHI = -1;
 
@@ -354,3 +359,12 @@ const String P2SH_ADDRESS = "p2sh";
 const String P2WPKH_ADDRESS_V0 = "p2wpkhv0";
 const String P2WSH_ADDRESS_V0 = "p2wshv0";
 const String P2TR_ADDRESS_V1 = "p2trv1";
+
+const DEFAULT_SEQUENCE = 0xffffffff;
+const ADVANCED_TRANSACTION_MARKER = 0x00;
+const ADVANCED_TRANSACTION_FLAG = 0x01;
+final EMPTY_SCRIPT = Uint8List.fromList([]);
+final EMPTY_WITNESS = <Uint8List>[];
+final ZERO = HEX.decode('0000000000000000000000000000000000000000000000000000000000000000');
+final ONE = HEX.decode('0000000000000000000000000000000000000000000000000000000000000001');
+final VALUE_UINT64_MAX = HEX.decode('ffffffffffffffff');
