@@ -2,11 +2,11 @@ import 'dart:typed_data';
 import 'package:hex/hex.dart';
 import 'package:bip32/src/utils/ecurve.dart' as ecc;
 import 'constants/op.dart';
+import 'package:bitcoin_flutter/src/payments/constants/constants.dart';
 import 'push_data.dart' as pushData;
 import 'check_types.dart';
 
-Map<int, String> REVERSE_OPS =
-    OPS.map((String string, int number) => new MapEntry(number, string));
+Map<int, String> REVERSE_OPS = OPS.map((String string, int number) => new MapEntry(number, string));
 final OP_INT_BASE = OPS['OP_RESERVED'];
 final ZERO = Uint8List.fromList([0]);
 
@@ -31,8 +31,7 @@ Uint8List compile(List<dynamic> chunks) {
         offset += 1;
         return null;
       }
-      pushData.EncodedPushData epd =
-          pushData.encode(buffer, chunk.length, offset);
+      pushData.EncodedPushData epd = pushData.encode(buffer, chunk.length, offset);
       offset += epd.size;
       buffer = epd.buffer;
       buffer.setRange(offset, offset + chunk.length, chunk);
@@ -44,8 +43,7 @@ Uint8List compile(List<dynamic> chunks) {
     }
   });
 
-  if (offset != buffer.length)
-    throw new ArgumentError("Could not decode chunks");
+  if (offset != buffer.length) throw new ArgumentError("Could not decode chunks");
   return buffer;
 }
 
@@ -160,8 +158,7 @@ bool bip66check(buffer) {
   if (lenR > 1 && (buffer[4] == 0x00) && buffer[5] & 0x80 == 0) return false;
 
   if (buffer[lenR + 6] & 0x80 != 0) return false;
-  if (lenS > 1 && (buffer[lenR + 6] == 0x00) && buffer[lenR + 7] & 0x80 == 0)
-    return false;
+  if (lenS > 1 && (buffer[lenR + 6] == 0x00) && buffer[lenR + 7] & 0x80 == 0) return false;
   return true;
 }
 
@@ -193,12 +190,12 @@ Uint8List bip66encode(Uint8List r, Uint8List s) {
   return signature;
 }
 
-Uint8List encodeSignature(Uint8List signature, int hashType) {
+Uint8List encodeSignature(Uint8List signature, {int? hashType}) {
+  hashType = hashType ?? SIGHASH_ALL;
   if (!isUint(hashType, 8)) throw ArgumentError("Invalid hasType $hashType");
   if (signature.length != 64) throw ArgumentError("Invalid signature");
   final hashTypeMod = hashType & ~0x80;
-  if (hashTypeMod <= 0 || hashTypeMod >= 4)
-    throw new ArgumentError('Invalid hashType $hashType');
+  if (hashTypeMod <= 0 || hashTypeMod >= 4) throw new ArgumentError('Invalid hashType $hashType');
 
   final hashTypeBuffer = new Uint8List(1);
   hashTypeBuffer.buffer.asByteData().setUint8(0, hashType);

@@ -4,19 +4,22 @@ import 'package:bip32/src/utils/ecurve.dart' show isPoint;
 import 'package:bech32/bech32.dart';
 
 import '../crypto.dart';
-import '../models/networks.dart';
+import 'package:bitcoin_flutter/src/models/networks.dart';
 import '../payments/index.dart' show PaymentData;
 import '../utils/script.dart' as bscript;
 import '../utils/constants/op.dart';
 
 class P2WPKH {
   final EMPTY_SCRIPT = Uint8List.fromList([]);
+  final OP = OPS['OP_0'];
+  final version = 0;
+  final length = 22;
 
   PaymentData data;
   NetworkType network;
   P2WPKH({@required data, network})
-  : this.network = network ?? bitcoin,
-    this.data = data {
+      : this.network = network ?? bitcoin,
+        this.data = data {
     _init();
   }
 
@@ -36,9 +39,9 @@ class P2WPKH {
     }
 
     if (data.output != null) {
-      if (data.output!.length != 22 ||
-          data.output![0] != OPS['OP_0'] ||
-          data.output![1] != 20) // 0x14
+      if (data.output!.length != length ||
+          data.output![0] != OP ||
+          (version == 0 ? data.output![1] != 20 : false)) // 0x14
         throw new ArgumentError('Output is invalid');
       if (data.hash == null) {
         data.hash = data.output!.sublist(2);
@@ -52,12 +55,10 @@ class P2WPKH {
     }
 
     if (data.witness != null) {
-      if (data.witness!.length != 2)
-        throw new ArgumentError('Witness is invalid');
+      if (data.witness!.length != 2) throw new ArgumentError('Witness is invalid');
       if (!bscript.isCanonicalScriptSignature(data.witness![0]))
         throw new ArgumentError('Witness has invalid signature');
-      if (!isPoint(data.witness![1]))
-        throw new ArgumentError('Witness has invalid pubkey');
+      if (!isPoint(data.witness![1])) throw new ArgumentError('Witness has invalid pubkey');
       _getDataFromWitness(data.witness!);
     } else if (data.pubkey != null && data.signature != null) {
       data.witness = [data.signature!, data.pubkey!];
@@ -81,10 +82,11 @@ class P2WPKH {
 
   void _getDataFromHash() {
     if (data.address == null) {
-      data.address = segwit.encode(Segwit(network.bech32, 0, data.hash!));
+      data.address =
+          segwit.encode(Segwit(network.bech32, version, data.hash!), isBech32m: version == 1);
     }
     if (data.output == null) {
-      data.output = bscript.compile([OPS['OP_0'], data.hash]);
+      data.output = bscript.compile([OP, data.hash]);
     }
   }
 
@@ -93,8 +95,7 @@ class P2WPKH {
       Segwit _address = segwit.decode(address);
       if (network.bech32 != _address.hrp)
         throw new ArgumentError('Invalid prefix or Network mismatch');
-      if (_address.version != 0) // Only support version 0 now;
-        throw new ArgumentError('Invalid address version');
+      if (_address.version != version) throw new ArgumentError('Invalid address version');
       data.hash = Uint8List.fromList(_address.program);
     } on InvalidHrp {
       throw new ArgumentError('Invalid prefix or Network mismatch');
@@ -104,4 +105,15 @@ class P2WPKH {
       throw new ArgumentError('Invalid witness address version');
     }
   }
+}
+
+class P2TR extends P2WPKH {
+  @override
+  final OP = OPS['OP_1'];
+  @override
+  final version = 1;
+  @override
+  final length = 34;
+
+  P2TR({@required data, network}) : super(data: data, network: network);
 }

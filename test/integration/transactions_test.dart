@@ -1,7 +1,7 @@
 import 'package:test/test.dart';
 import '../../lib/src/ecpair.dart';
 import '../../lib/src/transaction_builder.dart';
-import '../../lib/src/models/networks.dart' as NETWORKS;
+import 'package:bitcoin_flutter/src/models/networks.dart' as NETWORKS;
 import '../../lib/src/payments/p2wpkh.dart' show P2WPKH;
 import '../../lib/src/payments/index.dart' show PaymentData;
 
